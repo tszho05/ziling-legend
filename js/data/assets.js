@@ -2,9 +2,9 @@
 // cols/rows：精靈表格數。walk 表的列序為 下、左、右、上（generate2dsprite player_sheet 的輸出順序）。
 // height：整格在遊戲世界中的高度（1 = 一格地磚）；feet：腳底離格子底邊的比例（預設 0.04）。
 const hero = (cls) => ({
-  [`hero_${cls}_walk`]: { path: `assets/sprites/hero_${cls}_walk.png`, cols: 4, rows: 4, height: 1.9, kind: 'walk' },
-  [`hero_${cls}_battle_idle`]: { path: `assets/sprites/hero_${cls}_battle_idle.png`, cols: 2, rows: 2, height: 2.1, kind: 'idle' },
-  [`hero_${cls}_battle_attack`]: { path: `assets/sprites/hero_${cls}_battle_attack.png`, cols: 2, rows: 2, height: 2.1, kind: 'idle' },
+  [`hero_${cls}_walk`]: { path: `assets/sprites/hero_${cls}_walk.png`, cols: 4, rows: 4, height: 2.2, kind: 'walk' },
+  [`hero_${cls}_battle_idle`]: { path: `assets/sprites/hero_${cls}_battle_idle.png`, cols: 2, rows: 2, height: 2.4, kind: 'idle' },
+  [`hero_${cls}_battle_attack`]: { path: `assets/sprites/hero_${cls}_battle_attack.png`, cols: 2, rows: 2, height: 2.4, kind: 'idle' },
 });
 
 export const ASSETS = {

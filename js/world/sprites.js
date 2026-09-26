@@ -85,6 +85,7 @@ export class Billboard {
     }
 
     this.row = 0; this.frames = def.cols; this.fps = opts.fps ?? 6; this.t = 0; this.frame = 0;
+    this.loop = opts.loop ?? true; // false：播一次後停在最後一格（攻擊動作用）
     this.playing = true;
     this.setFrame(0, 0);
   }
@@ -112,7 +113,8 @@ export class Billboard {
       if (f !== this.frame) { this.frame = f; this.setFrame(this.row, f); }
     } else {
       const total = cols * rows;
-      const f = Math.floor(this.t * this.fps) % total;
+      const n = Math.floor(this.t * this.fps);
+      const f = this.loop ? n % total : Math.min(n, total - 1);
       if (f !== this.frame) { this.frame = f; this.setFrame(Math.floor(f / cols), f % cols); }
     }
   }

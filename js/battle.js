@@ -83,7 +83,7 @@ export class Battle {
     this.hero = {
       name: c.name, guard: false,
       sprite: new Billboard(`hero_${state.classId}_battle_idle`, { fps: 4 }),
-      attackSprite: new Billboard(`hero_${state.classId}_battle_attack`, { fps: 8, shadow: false }),
+      attackSprite: new Billboard(`hero_${state.classId}_battle_attack`, { fps: 10, shadow: false, loop: false }),
     };
     this.hero.home = new THREE.Vector3(3.6, 0, 0.6);
     this.hero.sprite.pivot.position.copy(this.hero.home);
