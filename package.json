@@ -1,0 +1,11 @@
+{
+  "name": "idiom-hd2d-rpg",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "vendor": "node scripts/vendor-three.mjs"
+  },
+  "dependencies": { "three": "^0.170.0" }
+}

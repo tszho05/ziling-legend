@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>字靈傳說</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "./vendor/three/three.module.js",
+      "three/addons/": "./vendor/three/addons/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="loading">載入中……</div>
+
+  <div id="title" class="screen" hidden>
+    <div class="title-logo">字靈傳說</div>
+    <div class="title-sub">喚醒成語的力量</div>
+    <div class="title-btns">
+      <button id="btn-new" class="btn primary">新遊戲</button>
+      <button id="btn-continue" class="btn" hidden>繼續遊戲</button>
+    </div>
+    <div id="placeholder-note" class="note"></div>
+  </div>
+
+  <div id="class-select" class="screen" hidden>
+    <div class="screen-title">選擇你的職業</div>
+    <div class="class-list"></div>
+  </div>
+
+  <div id="hud" hidden>
+    <div class="hud-box">
+      <div id="hud-area"></div>
+      <div id="hud-class"></div>
+      <div class="bar"><div id="hud-hp-fill" class="fill hp"></div></div>
+      <div id="hud-hp-text" class="hud-small"></div>
+      <div class="bar thin"><div id="hud-exp-fill" class="fill exp"></div></div>
+      <div id="hud-idioms" class="hud-small"></div>
+    </div>
+    <div id="hud-quest"></div>
+    <div class="hud-btns">
+      <button id="hud-book" class="btn small">成語冊 (B)</button>
+      <button id="hud-quests" class="btn small">任務 (Q)</button>
+    </div>
+  </div>
+
+  <div id="battle-ui" hidden>
+    <div id="battle-enemies"></div>
+    <div id="battle-hero"></div>
+    <div id="battle-log"></div>
+    <div id="battle-cmd"></div>
+  </div>
+
+  <div id="dialog" hidden><div class="dlg-name"></div><div class="dlg-text"></div><div class="dlg-next">▼</div></div>
+  <div id="choice" hidden></div>
+  <div id="card" class="modal" hidden></div>
+  <div id="quiz" class="modal" hidden></div>
+  <div id="panel" class="modal" hidden></div>
+  <button id="btn-mute" class="btn small" title="音樂開關 (M)"></button>
+  <div id="toasts"></div>
+  <div id="banner"></div>
+  <div id="fade"></div>
+
+  <div id="rotate-hint">請把平板橫放，畫面會更大 ↻</div>
+  <div id="touch-ui">
+    <div id="touch-pad"><div id="touch-knob"></div></div>
+    <button id="touch-ok">A</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

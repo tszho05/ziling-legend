@@ -1,0 +1,351 @@
+import * as THREE from 'three';
+import { buildMap, townLayout, fieldLayout } from './world/maps.js';
+import { Billboard } from './world/sprites.js';
+import { NPCS, QUESTS } from './data/npcs.js';
+import { FIELD_ENCOUNTERS, BOSS_ENCOUNTER } from './data/monsters.js';
+import { IDIOM_BY_ID } from './data/idioms.js';
+import { input } from './input.js';
+import { ui } from './ui.js';
+import { makeQuestion } from './quiz.js';
+import { sfx, music } from './audio.js';
+
+// 出城前至少要學會的成語數量
+export const IDIOMS_TO_LEAVE = 5;
+import { state, save, learn, gainExp, questComplete, maxHp } from './state.js';
+
+const SPEED = 4.2;
+const RADIUS = 0.3;
+const DIR_ROW = { down: 0, left: 1, right: 2, up: 3 };
+
+export class Overworld {
+  constructor(engine, { onBattle }) {
+    this.engine = engine;
+    this.onBattle = onBattle;
+    this.maps = {};
+    this.defeated = new Set();
+    this.cooldown = 0;
+  }
+
+  // 每次進入重新建構（郊區怪物會重生）
+  enter(mapId, spawn) {
+    if (this.world) this.world.scene.traverse(o => { if (o.isMesh && o.userData.billboard) o.userData.billboard.dispose(); });
+    const layout = mapId === 'town' ? townLayout() : fieldLayout();
+    this.world = buildMap(layout);
+    this.layout = layout;
+    state.map = mapId;
+    if (mapId === 'field') this.defeated.clear();
+
+    this.player = new Billboard(`hero_${state.classId}_walk`, { fps: 8 });
+    const sp = spawn || layout.spawn;
+    this.player.pivot.position.set(sp.x, 0, sp.z);
+    this.world.scene.add(this.player.pivot);
+    this.facing = 'up';
+
+    this.npcs = [];
+    if (mapId === 'town') {
+      for (const n of NPCS) {
+        const b = new Billboard(n.sprite, { fps: 3 });
+        b.pivot.position.set(n.x, 0, n.z);
+        this.world.scene.add(b.pivot);
+        const mark = makeMarker();
+        mark.position.set(0, b.height + 0.45, 0);
+        b.pivot.add(mark);
+        this.npcs.push({ def: n, sprite: b, mark });
+        layout.solid[Math.floor(n.z)][Math.floor(n.x)] = true;
+      }
+    }
+    this.monsters = [];
+    if (mapId === 'field') {
+      const encs = [...FIELD_ENCOUNTERS];
+      if (state.quests[BOSS_ENCOUNTER.requiresQuest]?.status === 'active' && !questComplete(BOSS_ENCOUNTER.requiresQuest)) encs.push({ ...BOSS_ENCOUNTER, boss: true });
+      encs.forEach((enc, i) => {
+        const b = new Billboard(`monster_${enc.party[0]}`, { fps: 4 });
+        b.setFlip(true);
+        b.pivot.position.set(enc.x + 0.5, 0, enc.z + 0.5);
+        this.world.scene.add(b.pivot);
+        this.monsters.push({ id: i, enc, sprite: b, home: new THREE.Vector2(enc.x + 0.5, enc.z + 0.5), t: Math.random() * 10 });
+      });
+    }
+    this.engine.setScene(this.world.scene);
+    music.play(mapId);
+    this.engine.lookAt(this.cameraTarget(), true);
+    ui.setArea(layout.name);
+    ui.updateHud();
+    this.refreshMarkers();
+    save();
+  }
+
+  cameraTarget() {
+    const p = this.player.pivot.position;
+    const t = new THREE.Vector3(p.x, 0.8, p.z);
+    // 靠近邊界時稍微收住
+    t.x = THREE.MathUtils.clamp(t.x, 6, this.layout.W - 6);
+    t.z = THREE.MathUtils.clamp(t.z, 2, this.layout.D - 1);
+    return t;
+  }
+
+  blocked(x, z) {
+    const L = this.layout;
+    const tx = Math.floor(x), tz = Math.floor(z);
+    if (tx < 0 || tz < 0 || tx >= L.W || tz >= L.D) return true;
+    return L.solid[tz][tx];
+  }
+  collides(x, z) {
+    const r = RADIUS;
+    return this.blocked(x - r, z - r) || this.blocked(x + r, z - r) || this.blocked(x - r, z + r) || this.blocked(x + r, z + r);
+  }
+
+  update(dt) {
+    const p = this.player.pivot.position;
+    if (!ui.busy && !this.transitioning) {
+      const a = input.axis();
+      const moving = a.x || a.z;
+      if (moving) {
+        this.facing = Math.abs(a.x) > Math.abs(a.z) ? (a.x < 0 ? 'left' : 'right') : (a.z < 0 ? 'up' : 'down');
+        const nx = p.x + a.x * SPEED * dt, nz = p.z + a.z * SPEED * dt;
+        if (!this.collides(nx, p.z)) p.x = nx;
+        if (!this.collides(p.x, nz)) p.z = nz;
+      }
+      this.player.setRow(DIR_ROW[this.facing]);
+      this.player.playing = !!moving;
+      if (!moving) this.player.setFrame(DIR_ROW[this.facing], 0);
+      // 行走時輕微上下彈動，補足影格較少時的動感
+      this.walkT = moving ? (this.walkT || 0) + dt : 0;
+      this.player.mesh.position.y = moving ? Math.abs(Math.sin(this.walkT * Math.PI * 4)) * 0.06 : 0;
+
+      if (input.take('ok')) this.tryInteract();
+      if (input.take('book')) ui.openBook().then(() => input.clearPressed());
+      if (input.take('quest')) ui.openQuests().then(() => input.clearPressed());
+      this.checkExits();
+      this.checkEncounters(dt);
+    } else {
+      this.player.playing = false;
+    }
+    this.player.update(dt);
+    for (const n of this.npcs) {
+      n.sprite.update(dt);
+      n.mark.position.y = n.sprite.height + 0.45 + Math.sin(performance.now() / 300) * 0.08;
+    }
+    this.updateMonsters(dt);
+    this.updateOcclusion();
+
+    this.engine.lookAt(this.cameraTarget());
+    const sun = this.world.sun;
+    sun.position.set(p.x - 8, 16, p.z + 7);
+    sun.target.position.set(p.x, 0, p.z);
+  }
+
+  updateMonsters(dt) {
+    for (const m of this.monsters) {
+      if (this.defeated.has(m.id)) continue;
+      m.t += dt;
+      const pos = m.sprite.pivot.position;
+      if (m.enc.boss) { m.sprite.setFlip(false); m.sprite.update(dt); continue; }
+      const tx = m.home.x + Math.cos(m.t * 0.6) * 1.2, tz = m.home.y + Math.sin(m.t * 0.9) * 0.8;
+      if (!this.collides(tx, tz)) pos.set(tx, 0, tz);
+      m.sprite.setFlip(Math.cos(m.t * 0.6 + Math.PI / 2) < 0);
+      m.sprite.update(dt);
+    }
+  }
+
+  // 玩家被房屋或樹擋住時，把遮擋物變半透明
+  updateOcclusion() {
+    const p = this.player.pivot.position;
+    for (const f of this.world.fadeables) {
+      const r = f.userData.rect;
+      const inFront = r.z + r.d > p.z && r.z < p.z + 4 && p.x > r.x - 0.6 && p.x < r.x + r.w + 0.6 && r.z > p.z - 0.2;
+      const target = inFront ? 0.35 : 1;
+      f.traverse(o => {
+        if (!o.isMesh) return;
+        if (!o.userData.ownMat) { o.material = o.material.clone(); o.material.transparent = true; o.userData.ownMat = true; }
+        o.material.opacity += (target - o.material.opacity) * 0.2;
+        o.material.depthWrite = o.material.opacity > 0.95;
+      });
+    }
+  }
+
+  checkExits() {
+    const p = this.player.pivot.position;
+    for (const ex of this.layout.exits) {
+      const r = ex.rect;
+      if (p.x >= r.x && p.x < r.x + r.w && p.z >= r.z && p.z < r.z + r.d + 0.2) {
+        if (ex.to === 'field' && state.learned.length < IDIOMS_TO_LEAVE) { this.blockGate(); return; }
+        this.transitioning = true;
+        sfx('door');
+        ui.fade(() => { this.enter(ex.to, ex.spawn); }).then(() => { this.transitioning = false; ui.banner(this.layout.name); });
+        return;
+      }
+    }
+  }
+
+  // 未學夠成語：衛兵攔住，把玩家推回城內
+  async blockGate() {
+    this.transitioning = true;
+    this.player.pivot.position.z = 2.2;
+    await ui.say('衛兵', [`郊區很危險！先喚醒至少 ${IDIOMS_TO_LEAVE} 個字靈（學會 ${IDIOMS_TO_LEAVE} 個成語）才可以出鎮。`, `你現在學會了 ${state.learned.length} 個，去找鎮上的居民吧。`]);
+    input.clearPressed();
+    this.transitioning = false;
+  }
+
+  checkEncounters(dt) {
+    if (this.cooldown > 0) { this.cooldown -= dt; return; }
+    const p = this.player.pivot.position;
+    for (const m of this.monsters) {
+      if (this.defeated.has(m.id)) continue;
+      const q = m.sprite.pivot.position;
+      if (Math.hypot(p.x - q.x, p.z - q.z) < 0.85) {
+        this.startBattle(m);
+        return;
+      }
+    }
+  }
+
+  async startBattle(m) {
+    this.transitioning = true;
+    const result = await this.onBattle(m.enc.party);
+    this.transitioning = false;
+    input.clearPressed();
+    if (result === 'win') {
+      this.defeated.add(m.id);
+      m.sprite.pivot.visible = false;
+      music.play(this.layout.id);
+      if (m.enc.boss) await this.bossDefeated();
+    } else if (result === 'flee') {
+      this.cooldown = 2.5;
+      music.play(this.layout.id);
+    } else if (result === 'lose') {
+      state.hp = maxHp();
+      await ui.fade(() => this.enter('town'));
+      await ui.say('鎮長', ['你昏倒在郊區，被鎮民抬回來了。', '休息一下，溫習好成語再出發吧！']);
+      input.clearPressed();
+    }
+    ui.updateHud();
+    this.refreshMarkers();
+  }
+
+  async bossDefeated() {
+    await ui.say('', ['亂字魔化成一團墨水，消失了！', '被困住的文字飛回天空，十個字靈一起發出光芒。', '回墨香鎮向鎮長報告吧！']);
+    input.clearPressed();
+  }
+
+  tryInteract() {
+    const p = this.player.pivot.position;
+    let best = null, bd = 1.6;
+    for (const n of this.npcs) {
+      const d = Math.hypot(n.def.x - p.x, n.def.z - p.z);
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (best) this.talk(best).then(() => { input.clearPressed(); this.refreshMarkers(); ui.updateHud(); });
+  }
+
+  // NPC 頭上的「！」「？」提示
+  refreshMarkers() {
+    for (const n of this.npcs) {
+      const s = this.npcStatus(n.def);
+      n.mark.visible = !!s;
+      if (s) n.mark.material.map = markerTex(s);
+    }
+  }
+  npcStatus(def) {
+    if (def.teaches && def.teaches.some(id => !state.learned.includes(id))) return '!';
+    if (def.quests) {
+      for (const qid of def.quests) {
+        const st = state.quests[qid];
+        if (st?.status === 'active') return questComplete(qid) ? '?' : null;
+        if (!st) return '!';
+      }
+    }
+    return null;
+  }
+
+  async talk(n) {
+    const def = n.def;
+    // 轉身面向玩家
+    await ui.say(def.name, def.greet);
+    if (def.teaches) {
+      const next = def.teaches.find(id => !state.learned.includes(id));
+      if (!next) {
+        const i = await ui.choose(`${def.name}：要溫習一下嗎？`, ['好，考考我！', '下次吧']);
+        if (i === 0) await this.review(def);
+        return;
+      }
+      const idiom = IDIOM_BY_ID[next];
+      await ui.say(def.name, [`我記得一個成語：「${idiom.word}」。仔細聽好了！`]);
+      await ui.idiomCard(idiom, `${def.name}教你的成語`);
+      // 即時小測驗，答對才算學會
+      let ok = false;
+      while (!ok) {
+        ok = await ui.quiz(makeQuestion([next], { targetId: next, types: ['meaning', 'example'] }), { title: '小測驗' });
+        ok ? state.quiz.correct++ : state.quiz.wrong++;
+        if (!ok) {
+          await ui.say(def.name, ['沒關係，我們再看一次。']);
+          await ui.idiomCard(idiom, `再看一次`);
+        }
+      }
+      learn(next);
+      sfx('learn');
+      ui.toast(`喚醒了字靈「${idiom.word}」！（${state.learned.length}/10）`);
+      await ui.say(def.name, ['太好了！字靈「' + idiom.word + '」醒過來了。', ...(def.teaches.some(id => !state.learned.includes(id)) ? ['再來找我，我還有一個成語要教你。'] : [])]);
+    }
+    if (def.quests) await this.questFlow(def);
+  }
+
+  async review(def) {
+    const q = makeQuestion(def.teaches);
+    const ok = await ui.quiz(q, { title: '溫習' });
+    ok ? state.quiz.correct++ : state.quiz.wrong++;
+    save();
+  }
+
+  async questFlow(def) {
+    for (const qid of def.quests) {
+      const q = QUESTS[qid];
+      const st = state.quests[qid];
+      if (st?.status === 'done') continue;
+      if (st?.status === 'active') {
+        if (questComplete(qid)) {
+          st.status = 'done';
+          const ups = gainExp(q.reward.exp);
+          sfx(ups ? 'levelup' : 'quest');
+          await ui.say(def.name, [`「${q.title}」完成了，辛苦你了！`, `獲得經驗值 ${q.reward.exp}。`, ...(ups ? [`等級提升到 Lv.${state.level}！`] : [])]);
+          continue;
+        }
+        await ui.say(def.name, [`「${q.title}」：${q.desc}`, '加油！']);
+        return;
+      }
+      const i = await ui.choose(`新任務：${q.title}\n${q.desc}`, ['接受', '稍後再說']);
+      if (i === 0) {
+        state.quests[qid] = { status: 'active', progress: 0 };
+        save();
+        sfx('quest');
+        ui.toast(`接受任務「${q.title}」`);
+        if (questComplete(qid)) continue;
+      }
+      return;
+    }
+    await ui.say(def.name, ['目前沒有新的任務了，謝謝你！']);
+  }
+}
+
+// ---- 提示符號 ----
+const markerCache = {};
+function markerTex(ch) {
+  if (markerCache[ch]) return markerCache[ch];
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  g.fillStyle = ch === '?' ? '#3fd06a' : '#ffcc33';
+  g.beginPath(); g.arc(16, 16, 14, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#3a2a10'; g.lineWidth = 2; g.stroke();
+  g.fillStyle = '#3a2a10'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(ch, 16, 17);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return (markerCache[ch] = t);
+}
+function makeMarker() {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTex('!'), depthTest: false }));
+  s.scale.set(0.5, 0.5, 1);
+  s.renderOrder = 10;
+  return s;
+}
