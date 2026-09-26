@@ -35,7 +35,7 @@ friendly look suitable for 10-year-old children, no text, no watermark
 - NPC：**2×2** 待機循環（輕微呼吸／眨眼），面向鏡頭。
 - 特效：**2×2**，四格是由開始到消失的過程。
 
-## 4. 素材清單（共 23 張）
+## 4. 素材清單（共 26 張）
 
 ### 英雄（3 個職業，每個 3 張）
 
@@ -70,6 +70,16 @@ friendly look suitable for 10-year-old children, no text, no watermark
 | assets/sprites/monster_wolf.png | 2×2 | 野狼：灰色、紅眼、低頭警戒 |
 | assets/sprites/monster_goblin.png | 2×2 | 哥布林：綠皮膚、尖耳、破布衣、手持木棒、腋下夾着搶來的書 |
 | assets/sprites/monster_boss.png | 2×2（每格 384） | 頭目「亂字魔」：一本巨大的黑紫色魔書，書頁張開像嘴巴，兩隻發紅光的眼睛，周圍飄浮着紫色的亂碼文字碎片，體型比其他怪物大很多；有威嚴但不要太恐怖 |
+
+### 怪物行走表（郊區遊走時用，第二批新增）
+
+側面、**面向右**、2×2 循環（四格是一個完整步伐循環），角色外觀和大小必須與同一怪物的待機表完全一致（用待機表做參考圖），腳底對齊規則同上。
+
+| 路徑 | 格數 | 描述 |
+|---|---|---|
+| assets/sprites/monster_slime_walk.png | 2×2 | 史萊姆跳躍前進：1 壓扁蓄力、2 彈起拉長、3 空中圓形、4 落地壓扁（身體留在格內，不用畫出高度位移，遊戲會自己加跳躍高度） |
+| assets/sprites/monster_wolf_walk.png | 2×2 | 野狼小跑：四條腿交替的跑步循環 |
+| assets/sprites/monster_goblin_walk.png | 2×2 | 哥布林踱步：左右腳交替、木棒和書隨步伐擺動 |
 
 ### 戰鬥特效
 

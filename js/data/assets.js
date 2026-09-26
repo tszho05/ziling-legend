@@ -20,6 +20,10 @@ export const ASSETS = {
   monster_slime: { path: 'assets/sprites/monster_slime.png', cols: 2, rows: 2, height: 1.1, kind: 'idle' },
   monster_wolf: { path: 'assets/sprites/monster_wolf.png', cols: 2, rows: 2, height: 1.4, kind: 'idle' },
   monster_goblin: { path: 'assets/sprites/monster_goblin.png', cols: 2, rows: 2, height: 1.6, kind: 'idle' },
+  // 怪物行走表（郊區移動時用；未生成時自動沿用待機表）
+  monster_slime_walk: { path: 'assets/sprites/monster_slime_walk.png', cols: 2, rows: 2, height: 1.1, kind: 'idle' },
+  monster_wolf_walk: { path: 'assets/sprites/monster_wolf_walk.png', cols: 2, rows: 2, height: 1.4, kind: 'idle' },
+  monster_goblin_walk: { path: 'assets/sprites/monster_goblin_walk.png', cols: 2, rows: 2, height: 1.6, kind: 'idle' },
   monster_boss: { path: 'assets/sprites/monster_boss.png', cols: 2, rows: 2, height: 2.8, kind: 'idle' },
   fx_slash: { path: 'assets/sprites/fx_slash.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },
   fx_fire: { path: 'assets/sprites/fx_fire.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },

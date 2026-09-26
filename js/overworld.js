@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildMap, townLayout, fieldLayout } from './world/maps.js';
-import { Billboard } from './world/sprites.js';
+import { Billboard, isPlaceholder } from './world/sprites.js';
 import { NPCS, QUESTS } from './data/npcs.js';
 import { FIELD_ENCOUNTERS, BOSS_ENCOUNTER } from './data/monsters.js';
 import { IDIOM_BY_ID } from './data/idioms.js';
@@ -8,6 +8,13 @@ import { input } from './input.js';
 import { ui } from './ui.js';
 import { makeQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
+
+// 怪物步伐：speed 速度、rest 停留秒數範圍、range 遊走半徑；史萊姆用跳躍
+const MOVE_STYLE = {
+  slime: { speed: 0.9, rest: [1.2, 3], range: 2.2, hop: true, hopRate: 1.6, hopHeight: 0.35, walkFps: 6 },
+  wolf: { speed: 2.3, rest: [0.8, 2.5], range: 3.2, stepRate: 4.5, bob: 0.07, sway: 0.02, walkFps: 10 },
+  goblin: { speed: 0.9, rest: [1.5, 3.5], range: 2.2, stepRate: 2.2, bob: 0.05, sway: 0.07, walkFps: 6 },
+};
 
 // 出城前至少要學會的成語數量
 export const IDIOMS_TO_LEAVE = 5;
@@ -59,11 +66,20 @@ export class Overworld {
       const encs = [...FIELD_ENCOUNTERS];
       if (state.quests[BOSS_ENCOUNTER.requiresQuest]?.status === 'active' && !questComplete(BOSS_ENCOUNTER.requiresQuest)) encs.push({ ...BOSS_ENCOUNTER, boss: true });
       encs.forEach((enc, i) => {
-        const b = new Billboard(`monster_${enc.party[0]}`, { fps: 4 });
+        const kind = enc.party[0];
+        const b = new Billboard(`monster_${kind}`, { fps: 4 });
         b.setFlip(true);
         b.pivot.position.set(enc.x + 0.5, 0, enc.z + 0.5);
         this.world.scene.add(b.pivot);
-        this.monsters.push({ id: i, enc, sprite: b, home: new THREE.Vector2(enc.x + 0.5, enc.z + 0.5), t: Math.random() * 10 });
+        // 有專用行走表就在移動時切換
+        let walk = null;
+        const wk = `monster_${kind}_walk`;
+        if (!enc.boss && !isPlaceholder(wk)) {
+          walk = new Billboard(wk, { fps: MOVE_STYLE[kind]?.walkFps ?? 6 });
+          walk.pivot.visible = false;
+          b.pivot.add(walk.pivot);
+        }
+        this.monsters.push({ id: i, enc, kind, sprite: b, walk, home: new THREE.Vector2(enc.x + 0.5, enc.z + 0.5), t: Math.random() * 10, mode: 'idle', timer: Math.random() * 2, face: -1 });
       });
     }
     this.engine.setScene(this.world.scene);
@@ -142,17 +158,77 @@ export class Overworld {
     sun.target.position.set(p.x, 0, p.z);
   }
 
+  // 自然遊走：走一段 → 停下張望 → 換方向；不同怪物有不同步伐
   updateMonsters(dt) {
     for (const m of this.monsters) {
       if (this.defeated.has(m.id)) continue;
       m.t += dt;
-      const pos = m.sprite.pivot.position;
+      const pv = m.sprite.pivot;
       if (m.enc.boss) { m.sprite.setFlip(false); m.sprite.update(dt); continue; }
-      const tx = m.home.x + Math.cos(m.t * 0.6) * 1.2, tz = m.home.y + Math.sin(m.t * 0.9) * 0.8;
-      if (!this.collides(tx, tz)) pos.set(tx, 0, tz);
-      m.sprite.setFlip(Math.cos(m.t * 0.6 + Math.PI / 2) < 0);
+      const st = MOVE_STYLE[m.kind] || MOVE_STYLE.goblin;
+      m.timer -= dt;
+      if (m.mode === 'idle') {
+        // 停下時偶爾轉頭張望
+        if (m.timer < 0.6 && !m.looked && Math.random() < 0.02) { m.face *= -1; m.looked = true; }
+        if (m.timer <= 0) this.pickWanderTarget(m, st);
+      } else {
+        const dx = m.target.x - pv.position.x, dz = m.target.y - pv.position.z;
+        const dist = Math.hypot(dx, dz);
+        // 史萊姆只在跳起時前進
+        let move = st.speed * dt;
+        if (st.hop) {
+          const ph = (m.t * st.hopRate) % 1;
+          move *= ph < 0.6 ? 1.7 : 0;
+        }
+        if (dist < 0.05 || m.timer <= 0) { m.mode = 'idle'; m.timer = st.rest[0] + Math.random() * (st.rest[1] - st.rest[0]); m.looked = false; }
+        else {
+          const nx = pv.position.x + dx / dist * Math.min(move, dist), nz = pv.position.z + dz / dist * Math.min(move, dist);
+          if (this.collides(nx, nz)) { m.mode = 'idle'; m.timer = 0.5; }
+          else { pv.position.x = nx; pv.position.z = nz; }
+          if (Math.abs(dx) > 0.02) m.face = dx < 0 ? -1 : 1;
+        }
+      }
+      const moving = m.mode === 'move';
+      // 步伐動作
+      let y = 0, sx = 1, sy = 1, rz = 0;
+      if (st.hop) {
+        const ph = (m.t * st.hopRate) % 1;
+        if (moving && ph < 0.6) y = Math.sin(ph / 0.6 * Math.PI) * st.hopHeight;
+        const land = moving ? Math.max(0, 1 - Math.abs(ph - 0.68) / 0.1) : 0;
+        const breathe = Math.sin(m.t * 3) * 0.04;
+        sx = 1 + land * 0.22 - breathe; sy = 1 - land * 0.25 + breathe;
+      } else if (moving) {
+        y = Math.abs(Math.sin(m.t * st.stepRate * Math.PI)) * st.bob;
+        rz = Math.sin(m.t * st.stepRate * Math.PI) * st.sway;
+      } else {
+        sy = 1 + Math.sin(m.t * 2.2) * 0.015;
+      }
+      pv.position.y = y;
+      pv.scale.set(sx, sy, 1);
+      pv.rotation.z = rz;
+      m.sprite.setFlip(m.face < 0);
+      if (m.walk) {
+        m.walk.setFlip(m.face < 0);
+        m.walk.pivot.visible = moving;
+        m.sprite.mesh.visible = !moving;
+        m.walk.update(dt);
+      }
       m.sprite.update(dt);
     }
+  }
+
+  pickWanderTarget(m, st) {
+    for (let k = 0; k < 8; k++) {
+      const a = Math.random() * Math.PI * 2, r = 0.8 + Math.random() * st.range;
+      const x = m.home.x + Math.cos(a) * r, z = m.home.y + Math.sin(a) * r * 0.8;
+      if (!this.collides(x, z)) {
+        m.target = new THREE.Vector2(x, z);
+        m.mode = 'move';
+        m.timer = 6;
+        return;
+      }
+    }
+    m.timer = 1;
   }
 
   // 玩家被房屋或樹擋住時，把遮擋物變半透明
