@@ -7,15 +7,23 @@ export const MONSTERS = {
   boss: { id: 'boss', name: '亂字魔', hp: 160, atk: 15, def: 7, exp: 80, boss: true, heavyEvery: 3 },
 };
 
-// 郊區遊蕩的怪物群（碰到就開戰）。x, z 為格子座標。
+// 郊區遊蕩的怪物群（碰到就開戰）。x, z 為格子座標；zone 為所在分區（見 zones.js）。
 export const FIELD_ENCOUNTERS = [
-  { x: 9, z: 16, party: ['slime'] },
-  { x: 20, z: 17, party: ['slime', 'slime'] },
-  { x: 6, z: 9, party: ['wolf'] },
-  { x: 23, z: 10, party: ['slime', 'wolf'] },
-  { x: 11, z: 6, party: ['goblin'] },
-  { x: 24, z: 5, party: ['goblin', 'slime'] },
+  // 1 草原
+  { x: 9, z: 28, zone: 1, party: ['slime'] },
+  { x: 30, z: 27, zone: 1, party: ['slime', 'slime'] },
+  { x: 14, z: 25, zone: 1, party: ['slime'] },
+  { x: 34, z: 30, zone: 1, party: ['slime'] },
+  // 2 森林
+  { x: 9, z: 16, zone: 2, party: ['wolf'] },
+  { x: 31, z: 15, zone: 2, party: ['wolf'] },
+  { x: 24, z: 18, zone: 2, party: ['slime', 'wolf'] },
+  { x: 36, z: 19, zone: 2, party: ['wolf', 'wolf'] },
+  // 3 哥布林營地
+  { x: 7, z: 5, zone: 3, party: ['goblin'] },
+  { x: 17, z: 7, zone: 3, party: ['goblin', 'slime'] },
+  { x: 20, z: 3, zone: 3, party: ['goblin'] },
 ];
 
-// 頭目：接了頭目任務後才會在郊區北端出現，不會四處走動
-export const BOSS_ENCOUNTER = { x: 16, z: 2, party: ['boss'], requiresQuest: 'q_boss' };
+// 頭目：在北東的祭壇，接了頭目任務後才出現，不會四處走動
+export const BOSS_ENCOUNTER = { x: 33, z: 4, zone: 4, party: ['boss'], requiresQuest: 'q_boss' };

@@ -1,6 +1,7 @@
 import { NPCS, QUESTS } from './data/npcs.js';
 import { MONSTERS } from './data/monsters.js';
 import { state, questComplete, questProgress } from './state.js';
+import { zoneOpen } from './data/zones.js';
 
 // 「下一步」提示：回傳 { text, target }，target 為 { x, z }（目前地圖上的位置）或 null
 const CHIEF = NPCS.find(n => n.quests);
@@ -63,7 +64,7 @@ export function computeObjective(world, leaveCount) {
   // 郊區：指向最近的目標怪物
   let best = null, bd = Infinity;
   for (const m of world.monsters) {
-    if (world.defeated.has(m.id) || !m.enc.party.includes(q.goal.target)) continue;
+    if (world.defeated.has(m.id) || !m.enc.party.includes(q.goal.target) || !zoneOpen(m.enc.zone ?? 1)) continue;
     const pos = m.sprite.pivot.position;
     const d = Math.hypot(pos.x - p.x, pos.z - p.z);
     if (d < bd) { bd = d; best = pos; }

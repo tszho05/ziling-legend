@@ -9,6 +9,7 @@ import { ui } from './ui.js';
 import { makeQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
 import { computeObjective } from './objective.js';
+import { GATES } from './data/zones.js';
 
 // 怪物步伐：speed 速度、rest 停留秒數範圍、range 遊走半徑；史萊姆用跳躍
 const MOVE_STYLE = {
@@ -37,7 +38,9 @@ export class Overworld {
   // 每次進入重新建構（郊區怪物會重生）
   enter(mapId, spawn) {
     if (this.world) this.world.scene.traverse(o => { if (o.isMesh && o.userData.billboard) o.userData.billboard.dispose(); });
-    const layout = mapId === 'town' ? townLayout() : fieldLayout();
+    const layout = mapId === 'town' ? townLayout()
+      : fieldLayout(Object.fromEntries(Object.entries(GATES).map(([id, g]) => [id, g.open()])));
+    this.gateCooldown = 0;
     this.world = buildMap(layout);
     this.layout = layout;
     state.map = mapId;
@@ -137,6 +140,7 @@ export class Overworld {
       if (input.take('book')) ui.openBook().then(() => input.clearPressed());
       if (input.take('quest')) ui.openQuests().then(() => input.clearPressed());
       this.checkExits();
+      this.checkGates(dt, moving);
       this.checkEncounters(dt);
     } else {
       this.player.playing = false;
@@ -261,7 +265,7 @@ export class Overworld {
     const p = this.player.pivot.position;
     for (const f of this.world.fadeables) {
       const r = f.userData.rect;
-      const inFront = r.z + r.d > p.z && r.z < p.z + 4 && p.x > r.x - 0.6 && p.x < r.x + r.w + 0.6 && r.z > p.z - 0.2;
+      const inFront = r.z + r.d > p.z && r.z < p.z + 4 && p.x > r.x - 1.1 && p.x < r.x + r.w + 1.1 && r.z > p.z - 0.2;
       const target = inFront ? 0.35 : 1;
       f.traverse(o => {
         if (!o.isMesh) return;
@@ -281,6 +285,20 @@ export class Overworld {
         this.transitioning = true;
         sfx('door');
         ui.fade(() => { this.enter(ex.to, ex.spawn); }).then(() => { this.transitioning = false; ui.banner(this.layout.name); });
+        return;
+      }
+    }
+  }
+
+  // 走近未開通的關卡時，說明要完成甚麼任務
+  checkGates(dt, moving) {
+    this.gateCooldown -= dt;
+    if (!moving || this.gateCooldown > 0 || !this.layout.closedGates) return;
+    const p = this.player.pivot.position;
+    for (const g of this.layout.closedGates) {
+      if (Math.hypot(g.x - p.x, g.z - p.z) < 1.5) {
+        this.gateCooldown = 5;
+        ui.say('', GATES[g.id].msg).then(() => input.clearPressed());
         return;
       }
     }
