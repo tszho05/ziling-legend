@@ -1,8 +1,8 @@
-// 三個職業。數值與技能名稱為暫定，待確認。
+// 三個職業：劍士為男角，法師、弓手為女角。
 // 技能一律要先答對成語題才能施放。
 export const CLASSES = {
   swordsman: {
-    id: 'swordsman', name: '劍士', color: '#c0392b',
+    id: 'swordsman', name: '劍士', gender: 'male', color: '#c0392b',
     desc: '生命高、攻擊穩，站在最前線保護同伴。',
     base: { hp: 60, atk: 12, def: 8, spd: 6 },
     grow: { hp: 10, atk: 3, def: 2, spd: 1 },
@@ -12,7 +12,7 @@ export const CLASSES = {
     ],
   },
   mage: {
-    id: 'mage', name: '法師', color: '#2e6fd8',
+    id: 'mage', name: '法師', gender: 'female', color: '#2e6fd8',
     desc: '生命較低，但魔法威力強大，可攻擊全體敵人。',
     base: { hp: 42, atk: 9, def: 5, spd: 7 },
     grow: { hp: 7, atk: 2, def: 1, spd: 1 },
@@ -22,7 +22,7 @@ export const CLASSES = {
     ],
   },
   archer: {
-    id: 'archer', name: '弓手', color: '#2f9e57',
+    id: 'archer', name: '弓手', gender: 'female', color: '#2f9e57',
     desc: '速度快，擅長連續射擊與會心一擊。',
     base: { hp: 50, atk: 11, def: 6, spd: 10 },
     grow: { hp: 8, atk: 3, def: 1, spd: 2 },

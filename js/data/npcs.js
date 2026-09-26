@@ -23,7 +23,7 @@ export const NPCS = [
   },
   {
     id: 'child', name: '小孩', sprite: 'npc_child', x: 22.5, z: 12.5,
-    greet: ['哥哥姐姐，你就是字靈守護者嗎？好厲害！', '我也記得兩個成語喔，教你！'],
+    greet: ['{稱呼}，你就是字靈守護者嗎？好厲害！', '我也記得兩個成語喔，教你！'],
     teaches: ['mudengkoudai', 'youkounanyan'],
   },
   {

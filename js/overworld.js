@@ -11,7 +11,7 @@ import { sfx, music } from './audio.js';
 
 // 出城前至少要學會的成語數量
 export const IDIOMS_TO_LEAVE = 5;
-import { state, save, learn, gainExp, questComplete, maxHp } from './state.js';
+import { state, cls, save, learn, gainExp, questComplete, maxHp } from './state.js';
 
 const SPEED = 4.2;
 const RADIUS = 0.3;
@@ -261,7 +261,8 @@ export class Overworld {
   async talk(n) {
     const def = n.def;
     // 轉身面向玩家
-    await ui.say(def.name, def.greet);
+    const call = cls().gender === 'male' ? '哥哥' : '姐姐';
+    await ui.say(def.name, def.greet.map(l => l.replace('{稱呼}', call)));
     if (def.teaches) {
       const next = def.teaches.find(id => !state.learned.includes(id));
       if (!next) {

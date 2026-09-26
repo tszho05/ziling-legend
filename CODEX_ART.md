@@ -40,13 +40,13 @@ friendly look suitable for 10-year-old children, no text, no watermark
 
 | 路徑 | 類型 | 格數 | 角色描述 |
 |---|---|---|---|
-| assets/sprites/hero_swordsman_walk.png | player_sheet 行走 | 4×4 | 年輕劍士：紅色短披風、皮革輕甲、長劍掛腰間、棕色短髮 |
+| assets/sprites/hero_swordsman_walk.png | player_sheet 行走 | 4×4 | 少年劍士（男）：紅色短披風、皮革輕甲、長劍掛腰間、棕色短髮 |
 | assets/sprites/hero_swordsman_battle_idle.png | idle，側面面向左 | 2×2 | 同一劍士，雙手持劍備戰 |
 | assets/sprites/hero_swordsman_battle_attack.png | attack，側面面向左 | 2×2 | 同一劍士，舉劍向左下斬 |
-| assets/sprites/hero_mage_walk.png | player_sheet 行走 | 4×4 | 年輕法師：深藍長袍、寬邊尖帽、頂端鑲藍寶石的木法杖 |
+| assets/sprites/hero_mage_walk.png | player_sheet 行走 | 4×4 | 少女法師（女）：深藍長袍、寬邊尖帽、頂端鑲藍寶石的木法杖 |
 | assets/sprites/hero_mage_battle_idle.png | idle，側面面向左 | 2×2 | 同一法師，舉杖備戰 |
 | assets/sprites/hero_mage_battle_attack.png | cast，側面面向左 | 2×2 | 同一法師，向左揮杖施法（不畫火焰） |
-| assets/sprites/hero_archer_walk.png | player_sheet 行走 | 4×4 | 年輕弓手：綠色連帽斗篷、長弓、背上箭袋 |
+| assets/sprites/hero_archer_walk.png | player_sheet 行走 | 4×4 | 少女弓手（女）：綠色連帽斗篷、長弓、背上箭袋 |
 | assets/sprites/hero_archer_battle_idle.png | idle，側面面向左 | 2×2 | 同一弓手，持弓備戰 |
 | assets/sprites/hero_archer_battle_attack.png | shoot，側面面向左 | 2×2 | 同一弓手，向左拉弓放箭（不畫飛行中的箭） |
 
