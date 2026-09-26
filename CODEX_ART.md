@@ -82,6 +82,8 @@ friendly look suitable for 10-year-old children, no text, no watermark
 
 ## 5. 建議次序
 
+> 2026-09-26：清單 23 張已全部交付至 `assets/sprites/`，共 128 影格。已檢查透明背景、格數、完整邊界、腳底對齊與瀏覽器載入；製作紀錄見 `assets/sprites/README.md`。
+
 1. ✅ `hero_swordsman_walk.png` 已完成並放進遊戲（腳底對齊、大小正確）；之後的角色都以它的風格、比例為準。
 2. 其餘英雄 → NPC → 怪物 → 頭目 → 特效。
 3. 每張完成後做 QC：格數正確、每格同大、主體沒有碰到格邊、腳底對齊、背景完全透明（沒有洋紅殘邊）。
