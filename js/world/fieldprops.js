@@ -93,7 +93,7 @@ export function makeCliffs(cells) {
   const capI = new THREE.InstancedMesh(new THREE.BoxGeometry(1.08, 0.18, 1.08), mat('fp-cap', () => std(tex.grass())), cells.length);
   const d = new THREE.Object3D();
   cells.forEach(({ x, z }, i) => {
-    const h = 1.3 + hash(x, z) * 0.5;
+    const h = 0.9 + hash(x, z) * 0.35; // 不要太高，免得擋住岩壁後面的角色
     d.position.set(x + 0.5, h / 2, z + 0.5); d.scale.set(1, h / 1.5, 1); d.rotation.y = 0; d.updateMatrix();
     rockI.setMatrixAt(i, d.matrix);
     d.position.set(x + 0.5, h + 0.05, z + 0.5); d.scale.set(1, 1, 1); d.updateMatrix();
@@ -173,26 +173,204 @@ export function makeCampfire(o) {
   return g;
 }
 
-// 亂字魔的祭壇：石台與四根斷柱
+// 亂字魔的祭壇：石台與符文、雕花斷柱（鎖鏈、藤蔓、紫火）、中央魔書祭台、飄浮文字與紫霧
+function glyphTexture(ch) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.shadowColor = '#b070ff'; g.shadowBlur = 12;
+  g.fillStyle = '#efe0ff'; g.font = 'bold 44px "Noto Serif TC", serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(ch, 32, 34);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function mistTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(190,140,255,0.7)');
+  grad.addColorStop(1, 'rgba(120,60,200,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+// 下垂的鎖鏈（兩點之間）
+function chain(ax, ay, az, bx, by, bz, sag, linkM) {
+  const g = new THREE.Group();
+  const len = Math.hypot(bx - ax, bz - az);
+  const n = Math.round(len / 0.14);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const link = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 4, 8), linkM);
+    link.position.set(ax + (bx - ax) * t, ay + (by - ay) * t - Math.sin(t * Math.PI) * sag, az + (bz - az) * t);
+    link.rotation.y = Math.atan2(bx - ax, bz - az);
+    if (i % 2) link.rotation.z = Math.PI / 2;
+    g.add(link);
+  }
+  return g;
+}
+
 export function makeAltar(o) {
   const g = new THREE.Group();
   const stone = mat('fp-altar', () => std(tex.stoneWall(), { color: 0xb8aec8 }));
-  const plat = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 0.1, 8), stone);
-  plat.receiveShadow = true;
-  g.add(at(plat, 0, 0.05, 0));
+  const dark = mat('fp-altar-dark', () => std(tex.stoneBase(), { color: 0x8a7fa0 }));
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.5, 0.12, 8), stone);
+  g.add(at(plat, 0, 0.06, 0));
+  const step = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.75, 0.06, 8), dark);
+  g.add(at(step, 0, 0.03, 0));
   const runeM = mat('fp-rune', () => new THREE.MeshBasicMaterial({ color: 0xb080ff, transparent: true, opacity: 0.55 }));
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.65, 32), runeM);
   rune.rotation.x = -Math.PI / 2;
-  g.add(at(rune, 0, 0.11, 0));
-  for (const [x, z] of o.pillars) {
-    const h = 2 + hash(x, z) * 1.2;
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, h, 8), stone);
-    g.add(at(p, x - o.cx, h / 2, z - o.cz));
-    g.add(at(box(0.8, 0.2, 0.8, stone), x - o.cx, 0.1, z - o.cz));
+  g.add(at(rune, 0, 0.13, 0));
+  const rune2 = new THREE.Mesh(new THREE.RingGeometry(0.9, 0.97, 6), runeM);
+  rune2.rotation.x = -Math.PI / 2;
+  g.add(at(rune2, 0, 0.13, 0));
+
+  // 石柱：底座、柱身、雕花環、斷裂柱頂、紫火
+  const bandM = mat('fp-band', () => std(tex.stoneBase(), { color: 0xd8cfe6 }));
+  const linkM = mat('fp-chain', () => new THREE.MeshStandardMaterial({ color: 0x55525e, metalness: 0.6, roughness: 0.45 }));
+  const flameM = new THREE.MeshStandardMaterial({ color: 0xc890ff, emissive: 0x9a4dff, emissiveIntensity: 2.6, transparent: true, opacity: 0.9 });
+  const flames = [];
+  const tops = [];
+  o.pillars.forEach(([x, z], i) => {
+    const px = x - o.cx, pz = z - o.cz;
+    const h = 2.1 + hash(x, z) * 0.9;
+    g.add(at(box(0.9, 0.3, 0.9, dark), px, 0.15, pz));
+    g.add(at(box(0.72, 0.18, 0.72, stone), px, 0.39, pz));
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, h, 10), stone);
+    g.add(at(col, px, 0.48 + h / 2, pz));
+    for (const k of [0.25, 0.6]) {
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.05, 6, 16), bandM);
+      band.rotation.x = Math.PI / 2;
+      g.add(at(band, px, 0.48 + h * k, pz));
+    }
+    // 斷裂的柱頂：傾斜碎塊
+    const top = leafBlob(0.3, x * 3 + z, stone);
+    top.scale.set(1, 0.55, 1);
+    top.rotation.set(0.3, i, 0.25);
+    g.add(at(top, px, 0.48 + h + 0.05, pz));
+    tops.push([px, 0.48 + h, pz]);
+    // 柱頂紫火與光
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 8), flameM);
+    g.add(at(f, px, 0.48 + h + 0.4, pz));
+    const light = new THREE.PointLight(0xa060ff, 3, 5, 1.8);
+    light.position.set(px, 0.48 + h + 0.5, pz);
+    g.add(light);
+    flames.push({ f, light, ph: i * 1.7 });
+    // 藤蔓：沿柱身螺旋的小葉團（前面兩根）
+    if (pz > 0) {
+      for (let k = 0; k < 7; k++) {
+        const a = k * 1.1 + i;
+        const leaf = leafBlob(0.11, k + i * 10, TM.mid());
+        g.add(at(leaf, px + Math.cos(a) * 0.3, 0.6 + k * (h / 8), pz + Math.sin(a) * 0.3));
+      }
+    }
+  });
+  // 鎖鏈：連接相鄰石柱
+  const order = [0, 1, 3, 2];
+  for (let k = 0; k < 4; k++) {
+    const [ax, ay, az] = tops[order[k]], [bx, by, bz] = tops[order[(k + 1) % 4]];
+    g.add(chain(ax, ay - 0.35, az, bx, by - 0.35, bz, 0.9, linkM));
   }
+
+  // 中央魔書祭台（在頭目身後）
+  const stand = new THREE.Group();
+  stand.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.18, 8), dark), 0, 0.09, 0));
+  stand.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 0.9, 8), stone), 0, 0.63, 0));
+  for (const y of [0.35, 0.95]) {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.04, 6, 12), bandM);
+    band.rotation.x = Math.PI / 2;
+    stand.add(at(band, 0, y, 0));
+  }
+  const tray = box(0.8, 0.08, 0.6, stone);
+  tray.rotation.x = -0.25;
+  stand.add(at(tray, 0, 1.12, 0));
+  // 飄浮的魔書：封面、書頁、會翻動的一頁
+  const book = new THREE.Group();
+  const coverM = mat('fp-cover', () => new THREE.MeshStandardMaterial({ color: 0x2a1838, roughness: 0.6, emissive: 0x3a1060, emissiveIntensity: 0.4 }));
+  const pageM = mat('fp-page', () => new THREE.MeshStandardMaterial({ color: 0xf0e4c8, emissive: 0x8050c0, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
+  for (const s of [-1, 1]) {
+    const cover = box(0.36, 0.03, 0.48, coverM);
+    cover.rotation.z = s * 0.18;
+    book.add(at(cover, s * 0.18, 0, 0));
+    const pages = box(0.33, 0.05, 0.44, pageM);
+    pages.rotation.z = s * 0.18;
+    book.add(at(pages, s * 0.17, 0.035, 0));
+  }
+  const flip = new THREE.Group();
+  const leafPage = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 0.44), pageM);
+  leafPage.rotation.x = -Math.PI / 2;
+  leafPage.position.x = 0.165;
+  flip.add(leafPage);
+  flip.position.y = 0.07;
+  book.add(flip);
+  book.position.y = 1.55;
+  stand.add(book);
+  const bookLight = new THREE.PointLight(0xb070ff, 4, 4, 1.6);
+  bookLight.position.y = 1.8;
+  stand.add(bookLight);
+  stand.position.set(0, 0.12, -1.35);
+  g.add(stand);
+
+  // 繞着祭壇飄浮的文字碎片
+  const chars = '心驚膽戰沾自喜怒髮衝冠上眉梢不在焉一籌莫展目瞪口呆灰意冷有難言百感交集';
+  const glyphs = [];
+  for (let i = 0; i < 16; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glyphTexture(chars[(i * 7) % chars.length]), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    s.scale.setScalar(0.42);
+    s.userData = { r: 1.9 + hash(i, 1) * 1.1, a: hash(i, 2) * Math.PI * 2, y: 0.6 + hash(i, 3) * 2.2, sp: 0.25 + hash(i, 4) * 0.25 };
+    g.add(s);
+    glyphs.push(s);
+  }
+  // 地面紫霧
+  const N = 70;
+  const mistGeo = new THREE.BufferGeometry();
+  const mp = new Float32Array(N * 3), seeds = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const a = hash(i, 5) * Math.PI * 2, r = 0.5 + hash(i, 6) * 3;
+    mp[i * 3] = Math.cos(a) * r; mp[i * 3 + 1] = 0.15 + hash(i, 7) * 0.35; mp[i * 3 + 2] = Math.sin(a) * r;
+    seeds[i] = hash(i, 8) * 10;
+  }
+  mistGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+  const mist = new THREE.Points(mistGeo, new THREE.PointsMaterial({ map: mistTexture(), size: 1.3, transparent: true, depthWrite: false, opacity: 0.35, blending: THREE.AdditiveBlending }));
+  mist.frustumCulled = false;
+  g.add(mist);
+
   g.position.set(o.cx, 0, o.cz);
-  g.userData.tick = t => { runeM.opacity = 0.4 + Math.sin(t * 2) * 0.2; rune.rotation.z = t * 0.2; };
-  return shadow(g);
+  g.traverse(m => { if (m.isMesh && m.material !== runeM && m.material !== flameM) { m.castShadow = true; m.receiveShadow = true; } });
+  g.userData.tick = t => {
+    runeM.opacity = 0.4 + Math.sin(t * 2) * 0.2;
+    rune.rotation.z = t * 0.2;
+    rune2.rotation.z = -t * 0.35;
+    for (const { f, light, ph } of flames) {
+      const k = 1 + Math.sin(t * 11 + ph) * 0.1 + Math.sin(t * 6.3 + ph) * 0.07;
+      f.scale.set(1, k, 1);
+      light.intensity = 2.6 + Math.sin(t * 9 + ph) * 0.6;
+    }
+    book.position.y = 1.55 + Math.sin(t * 1.6) * 0.08;
+    book.rotation.y = Math.sin(t * 0.5) * 0.25;
+    const fp = (t * 0.45) % 1; // 一頁慢慢翻過去
+    flip.rotation.z = fp < 0.8 ? (fp / 0.8) * Math.PI : Math.PI;
+    leafPage.visible = fp < 0.8;
+    for (const s of glyphs) {
+      const u = s.userData;
+      const a = u.a + t * u.sp;
+      s.position.set(Math.cos(a) * u.r, u.y + Math.sin(t * 1.3 + u.a) * 0.25, Math.sin(a) * u.r * 0.8);
+      s.material.opacity = 0.55 + Math.sin(t * 2 + u.a * 3) * 0.35;
+    }
+    for (let i = 0; i < N; i++) {
+      const a = t * 0.08 + seeds[i];
+      mp[i * 3] += Math.cos(a) * 0.004;
+      mp[i * 3 + 2] += Math.sin(a) * 0.004;
+    }
+    mistGeo.attributes.position.needsUpdate = true;
+    mist.material.opacity = 0.3 + Math.sin(t * 0.8) * 0.08;
+  };
+  return g;
 }
 
 // 河岸：沿兩岸散佈石頭和蘆葦（避開木橋）

@@ -10,6 +10,7 @@ import { makeQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
 import { computeObjective } from './objective.js';
 import { GATES } from './data/zones.js';
+import { playEnding } from './ending.js';
 
 // 怪物步伐：speed 速度、rest 停留秒數範圍、range 遊走半徑；史萊姆用跳躍
 const MOVE_STYLE = {
@@ -161,7 +162,7 @@ export class Overworld {
       sw.canopy.rotation.x = Math.cos(tt * 0.9 + sw.phase) * 0.02;
     }
 
-    this.engine.lookAt(this.cameraTarget());
+    this.engine.lookAt(this.camOverride || this.cameraTarget());
     const sun = this.world.sun;
     sun.position.set(p.x - 8, 16, p.z + 7);
     sun.target.position.set(p.x, 0, p.z);
@@ -350,8 +351,9 @@ export class Overworld {
   }
 
   async bossDefeated() {
-    await ui.say('', ['亂字魔化成一團墨水，消失了！', '被困住的文字飛回天空，十個字靈一起發出光芒。', '回墨香鎮向鎮長報告吧！']);
+    await ui.say('', ['亂字魔化成一團墨水，消失了！', '被困住的文字飛回天空，十個字靈一起發出光芒……']);
     input.clearPressed();
+    await playEnding(this);
   }
 
   tryInteract() {

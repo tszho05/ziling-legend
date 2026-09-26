@@ -191,6 +191,69 @@ export const ui = {
 
   setArea(name) { $('#hud-area').textContent = name; },
 
+  // 通關成績頁：回傳 'continue' 或 'restart'
+  showResults(r) {
+    const box = $('#results');
+    setDepth(1);
+    return new Promise(resolve => {
+      box.innerHTML = `
+        <div class="res-inner">
+          <div class="res-title">恭喜通關！</div>
+          <div class="res-sub">你喚醒了全部十個字靈，墨香鎮恢復了平靜。</div>
+          <div class="res-stats">
+            <div><b>${esc(r.className)}</b><span>職業</span></div>
+            <div><b>Lv.${r.level}</b><span>等級</span></div>
+            <div><b>${r.correct}/${r.total}</b><span>答對題數</span></div>
+            <div><b>${r.accuracy}%</b><span>正確率</span></div>
+            <div><b>${r.kills}</b><span>打倒怪物</span></div>
+          </div>
+          <div class="res-head">學會的十個成語</div>
+          <div class="res-idioms">${r.idioms.map(i => `<div class="res-idiom"><b>${esc(i.word)}</b><span>${esc(i.meaning)}</span></div>`).join('')}</div>
+          <div class="res-btns">
+            <button class="btn" data-act="cert">列印證書</button>
+            <button class="btn primary" data-act="continue">繼續在鎮上溫習</button>
+            <button class="btn" data-act="restart">重新開始</button>
+          </div>
+        </div>`;
+      box.hidden = false;
+      const done = act => { box.hidden = true; keyHandler = null; setDepth(-1); resolve(act); };
+      box.querySelector('[data-act="continue"]').onclick = () => done('continue');
+      box.querySelector('[data-act="restart"]').onclick = async () => {
+        const i = await this.choose('確定要重新開始嗎？現有進度會清除。', ['確定重新開始', '取消']);
+        if (i === 0) done('restart');
+      };
+      box.querySelector('[data-act="cert"]').onclick = () => this.certificate(r);
+      keyHandler = null;
+    });
+  },
+
+  // 可列印的「成語小達人」證書
+  certificate(r) {
+    const box = $('#certificate');
+    const today = new Date();
+    const date = `${today.getFullYear()} 年 ${today.getMonth() + 1} 月 ${today.getDate()} 日`;
+    box.innerHTML = `
+      <div class="cert-paper">
+        <div class="cert-title">成語小達人證書</div>
+        <div class="cert-body">
+          茲證明　<input class="cert-name" placeholder="請輸入名字" maxlength="12">　同學<br>
+          在《字靈傳說》中喚醒全部十個字靈，學會十個成語，<br>
+          答題正確率 ${r.accuracy}%，特頒此證，以資鼓勵。
+        </div>
+        <div class="cert-idioms">${r.idioms.map(i => `<span>${esc(i.word)}</span>`).join('')}</div>
+        <div class="cert-foot">墨香鎮鎮長　${date}</div>
+      </div>
+      <div class="cert-btns"><button class="btn primary" data-act="print">列印</button><button class="btn" data-act="close">關閉</button></div>`;
+    box.hidden = false;
+    box.querySelector('.cert-name').focus();
+    box.querySelector('[data-act="print"]').onclick = () => {
+      const inp = box.querySelector('.cert-name');
+      inp.setAttribute('value', inp.value);
+      window.print();
+    };
+    box.querySelector('[data-act="close"]').onclick = () => { box.hidden = true; };
+  },
+
   openBook() {
     const box = $('#panel');
     setDepth(1);

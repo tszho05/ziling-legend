@@ -11,6 +11,7 @@ const MAP = {
 };
 
 window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return; // 在輸入框打字時不當作遊戲操作
   const a = MAP[e.code];
   if (!a) return;
   if (!down.has(a)) pressed.add(a);

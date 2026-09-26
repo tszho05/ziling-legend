@@ -161,3 +161,49 @@ body.in-battle #touch-ui, body.ui-open #touch-ui { display: none; }
 #hud-next span { display: inline-block; background: var(--accent); color: #2a1c05; font-size: 12px; font-weight: bold; border-radius: 3px; padding: 0 6px; margin-right: 8px; }
 #hud-next.flash { animation: nextFlash 1s ease-out; }
 @keyframes nextFlash { 0% { box-shadow: 0 0 0 0 rgba(255, 211, 107, .9); } 100% { box-shadow: 0 0 0 14px rgba(255, 211, 107, 0); } }
+
+/* 過場：隱藏介面、上下黑邊 */
+body.cutscene #hud, body.cutscene #touch-ui, body.cutscene #btn-mute { display: none !important; }
+body::before, body::after { content: ""; position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 19; transition: height .8s ease; pointer-events: none; }
+body::before { top: 0; }
+body::after { bottom: 0; }
+body.cutscene::before, body.cutscene::after { height: 9vh; }
+
+/* 通關成績頁 */
+#results { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(40, 30, 10, .78), rgba(8, 6, 12, .94)); overflow: auto; }
+#results[hidden] { display: none; }
+.res-inner { width: min(860px, 100%); background: var(--panel); border: 2px solid var(--border); border-radius: 12px; padding: 24px 26px; box-shadow: 0 0 40px rgba(255, 200, 90, .25); animation: resIn .6s ease-out; }
+@keyframes resIn { from { opacity: 0; transform: scale(.94); } }
+.res-title { font-size: clamp(34px, 6vw, 52px); text-align: center; color: var(--accent); letter-spacing: .2em; text-shadow: 0 0 18px rgba(255, 190, 80, .6); }
+.res-sub { text-align: center; color: var(--muted); margin: 6px 0 18px; font-size: 16px; }
+.res-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.res-stats div { background: #221d2c; border: 1px solid var(--border-dim); border-radius: 8px; padding: 10px; text-align: center; }
+.res-stats b { display: block; font-size: 24px; color: var(--accent); }
+.res-stats span { font-size: 13px; color: var(--muted); }
+.res-head { color: var(--accent); font-size: 18px; margin: 4px 0 10px; }
+.res-idioms { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.res-idiom { border: 1px solid var(--border-dim); border-radius: 6px; padding: 8px 10px; }
+.res-idiom b { display: block; font-size: 20px; color: #fff6dc; }
+.res-idiom span { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.res-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+
+/* 證書 */
+#certificate { position: fixed; inset: 0; z-index: 35; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; background: rgba(8, 6, 12, .9); overflow: auto; }
+#certificate[hidden] { display: none; }
+.cert-paper { width: min(760px, 100%); aspect-ratio: 1.414; background: #fbf4e2; color: #3a2a14; border: 10px double #b8862e; border-radius: 6px; padding: 5% 7%; display: flex; flex-direction: column; justify-content: space-between; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .5); }
+.cert-title { font-size: clamp(28px, 5vw, 48px); letter-spacing: .3em; color: #8a3a1e; }
+.cert-body { font-size: clamp(15px, 2.2vw, 21px); line-height: 2; }
+.cert-name { font: inherit; width: 8em; text-align: center; border: none; border-bottom: 2px solid #3a2a14; background: transparent; color: #3a2a14; }
+.cert-idioms { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; font-size: clamp(13px, 1.8vw, 17px); color: #6a4a1e; }
+.cert-idioms span { border: 1px solid #c9a56a; border-radius: 4px; padding: 0 6px; }
+.cert-foot { text-align: right; font-size: clamp(13px, 1.8vw, 17px); }
+.cert-btns { display: flex; gap: 10px; }
+
+@media print {
+  body > *:not(#certificate) { display: none !important; }
+  body::before, body::after { display: none !important; }
+  html, body { background: #fff !important; overflow: visible !important; }
+  #certificate { position: static; background: none; padding: 0; }
+  .cert-btns { display: none !important; }
+  .cert-paper { box-shadow: none; width: 100%; }
+}

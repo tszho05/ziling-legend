@@ -91,7 +91,7 @@ async function startGame(fresh) {
 const muteBtn = $('#btn-mute');
 const syncMute = () => { muteBtn.textContent = isMuted() ? '♪ 關' : '♪ 開'; };
 muteBtn.onclick = () => { toggleMute(); syncMute(); };
-window.addEventListener('keydown', e => { if (e.code === 'KeyM') { toggleMute(); syncMute(); } });
+window.addEventListener('keydown', e => { if (e.code === 'KeyM' && e.target.tagName !== 'INPUT') { toggleMute(); syncMute(); } });
 syncMute();
 
 $('#hud-book').onclick = () => { if (!ui.busy) ui.openBook(); };
