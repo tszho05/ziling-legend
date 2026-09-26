@@ -63,7 +63,8 @@ export class Billboard {
       transparent: !!opts.transparent,
     });
     this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.castShadow = opts.castShadow ?? true;
+    // 角色只用腳下的柔和影子，不投射即時陰影（否則會出現兩個影）
+    this.mesh.castShadow = opts.castShadow ?? false;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking, map: this.tex, alphaTest,
     });
@@ -74,12 +75,13 @@ export class Billboard {
 
     if (opts.shadow !== false) {
       const blob = new THREE.Mesh(
-        new THREE.CircleGeometry(Math.max(0.35, this.width * 0.32), 20),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false }),
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, opacity: 0.8, depthWrite: false }),
       );
       blob.rotation.x = -Math.PI / 2;
-      blob.position.y = 0.02;
-      blob.scale.y = 0.55;
+      blob.position.y = 0.06; // 高於石板地面（頂面約 0.02）
+      const r = Math.max(0.9, this.width * 0.62);
+      blob.scale.set(r, r * 0.5, 1);
       this.pivot.add(blob);
       this.blob = blob;
     }
@@ -124,6 +126,23 @@ export class Billboard {
     this.mesh.material.dispose();
     this.tex.dispose();
   }
+}
+
+// 柔和圓形影子貼圖（中心深、邊緣漸淡）
+let blobTex = null;
+function blobTexture() {
+  if (blobTex) return blobTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.5, 'rgba(0,0,0,0.7)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  blobTex = new THREE.CanvasTexture(c);
+  return blobTex;
 }
 
 // ---------- 佔位圖（generate2dsprite 素材未放入前使用） ----------
