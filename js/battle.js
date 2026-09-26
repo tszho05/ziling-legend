@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { Billboard } from './world/sprites.js';
-import { makeTree } from './world/maps.js';
+import { makeTree } from './world/props.js';
 import { tex } from './world/textures.js';
 import { MONSTERS } from './data/monsters.js';
 import { state, cls, stats, maxHp, save, gainExp, recordKill } from './state.js';
-import { makeQuestion, QUIZ_TYPES } from './quiz.js';
+import { nextQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
 import { ui } from './ui.js';
 
@@ -211,7 +211,7 @@ export class Battle {
         const skill = cls().skills.find(s => 'skill:' + s.id === cmd);
         let target = null;
         if (skill.kind === 'damage') { target = await this.pickTarget(); if (!target) continue; }
-        const ok = await ui.quiz(makeQuestion(state.learned, { types: QUIZ_TYPES }), { title: `施放「${skill.name}」── 答對才能借用字靈之力` });
+        const ok = await ui.quiz(nextQuestion(state.learned), { title: `施放「${skill.name}」── 答對才能借用字靈之力` });
         ok ? state.quiz.correct++ : state.quiz.wrong++;
         if (!ok) {
           sfx('fail');

@@ -128,6 +128,12 @@ export class Overworld {
     }
     this.updateMonsters(dt);
     this.updateOcclusion();
+    // 樹冠隨風輕輕擺動
+    const tt = performance.now() / 1000;
+    for (const sw of this.world.swayers) {
+      sw.canopy.rotation.z = Math.sin(tt * 1.2 + sw.phase) * 0.03;
+      sw.canopy.rotation.x = Math.cos(tt * 0.9 + sw.phase) * 0.02;
+    }
 
     this.engine.lookAt(this.cameraTarget());
     const sun = this.world.sun;
@@ -247,7 +253,9 @@ export class Overworld {
     }
   }
   npcStatus(def) {
-    if (def.teaches && def.teaches.some(id => !state.learned.includes(id))) return '!';
+    // 開局只有鎮長有「！」；接了第一個任務後，教成語的居民才顯示「！」
+    const started = Object.keys(state.quests).length > 0;
+    if (def.teaches && started && def.teaches.some(id => !state.learned.includes(id))) return '!';
     if (def.quests) {
       for (const qid of def.quests) {
         const st = state.quests[qid];

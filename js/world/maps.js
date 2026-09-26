@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { tex } from './textures.js';
+import { mat, std, makeHouse, makeTree, makeBush } from './props.js';
 
 // 地圖以格子描述。ground：地面種類；solid：是否阻擋。
 // 座標：x 向右、z 向下（朝鏡頭）；格子 (x, z) 的中心在 (x+0.5, z+0.5)。
@@ -30,12 +31,12 @@ export function townLayout() {
   }
   objects.push({ type: 'gate', x: 12, z: 0, w: 4 });
   const houses = [
-    { x: 2, z: 2, w: 5, d: 4, h: 2.6, roof: 'red' },
-    { x: 21, z: 2, w: 5, d: 4, h: 2.6, roof: 'blue' },
-    { x: 7, z: 3, w: 4, d: 3, h: 2.2, roof: 'green' },
-    { x: 17, z: 3, w: 4, d: 3, h: 2.2, roof: 'red' },
-    { x: 2, z: 16, w: 5, d: 3, h: 2.4, roof: 'blue' },
-    { x: 21, z: 16, w: 5, d: 3, h: 2.4, roof: 'green' },
+    { x: 2, z: 2, w: 5, d: 4, h: 2.6, roof: 'red', ridge: 'x', tint: 'cream', chimney: true },
+    { x: 21, z: 2, w: 5, d: 4, h: 2.6, roof: 'blue', ridge: 'x', tint: 'rose', chimney: true },
+    { x: 7, z: 3, w: 4, d: 3, h: 2.4, roof: 'green', ridge: 'z', tint: 'sky', sign: 0x3a8a4a },
+    { x: 17, z: 3, w: 4, d: 3, h: 2.4, roof: 'red', ridge: 'z', tint: 'cream', sign: 0xc0392b },
+    { x: 2, z: 16, w: 5, d: 3, h: 2.4, roof: 'blue', ridge: 'x', tint: 'cream' },
+    { x: 21, z: 16, w: 5, d: 3, h: 2.4, roof: 'green', ridge: 'x', tint: 'rose', chimney: true },
   ];
   for (const h of houses) {
     objects.push({ type: 'house', ...h });
@@ -49,7 +50,7 @@ export function townLayout() {
   for (const [x, z] of [[1, 8], [2, 11], [1, 14], [26, 8], [25, 11], [26, 13], [9, 19], [18, 19], [4, 7], [23, 7]]) {
     objects.push({ type: 'tree', x, z }); solid[z][x] = true;
   }
-  for (const [x, z] of [[8, 6], [19, 6], [6, 19], [22, 19]]) {
+  for (const [x, z] of [[11, 6], [16, 6], [6, 19], [22, 19]]) {
     objects.push({ type: 'crate', x, z }); solid[z][x] = true;
   }
   return {
@@ -101,9 +102,6 @@ export function fieldLayout() {
 }
 
 // ---------------- 建構 3D 場景 ----------------
-const matCache = new Map();
-function mat(key, make) { if (!matCache.has(key)) matCache.set(key, make()); return matCache.get(key); }
-const std = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, roughness: 0.95, metalness: 0, ...extra });
 
 export function buildMap(layout) {
   const scene = new THREE.Scene();
@@ -111,6 +109,7 @@ export function buildMap(layout) {
   scene.fog = new THREE.Fog(layout.fog, 28, 60);
   const fadeables = [];
   const lights = [];
+  const swayers = []; // 會隨風擺動的樹冠
 
   // 光源
   scene.add(new THREE.HemisphereLight(0xfff1dc, 0x6a5234, 1.25));
@@ -180,6 +179,7 @@ export function buildMap(layout) {
     if (obj) {
       scene.add(obj);
       if (obj.userData.fadeable) fadeables.push(obj);
+      if (obj.userData.sway) swayers.push(obj.userData.sway);
     }
   }
   // 地圖外的背景樹
@@ -187,60 +187,13 @@ export function buildMap(layout) {
     const a = i / 60 * Math.PI * 2;
     const r = Math.max(layout.W, layout.D) * 0.75 + (i % 3) * 2;
     const t = makeTree({ x: layout.W / 2 + Math.cos(a) * r, z: layout.D / 2 + Math.sin(a) * r * 0.8 - 2 });
-    if (t.position.z < layout.D + 1) scene.add(t);
+    if (t.position.z < layout.D + 1) { scene.add(t); swayers.push(t.userData.sway); }
   }
 
-  return { scene, sun, fadeables, lights, layout };
+  return { scene, sun, fadeables, lights, swayers, layout };
 }
 
 function shadowAll(g) { g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return g; }
-
-function makeHouse(o) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(o.w - 0.1, o.h, o.d - 0.1), mat('plaster', () => std(tex.plaster())));
-  body.position.set(o.w / 2, o.h / 2, o.d / 2);
-  g.add(body);
-  const roofH = 1.6;
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.7071, 1, 4, 1), mat('roof' + o.roof, () => std(tex.roof(o.roof), { flatShading: true })));
-  roof.rotation.y = Math.PI / 4;
-  roof.scale.set(o.w + 0.5, roofH, o.d + 0.5);
-  roof.position.set(o.w / 2, o.h + roofH / 2, o.d / 2);
-  g.add(roof);
-  const door = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.5), mat('door', () => std(tex.wood())));
-  door.position.set(o.w / 2, 0.75, o.d - 0.04);
-  g.add(door);
-  const winMat = mat('window', () => new THREE.MeshStandardMaterial({ color: 0xffd98a, emissive: 0xffb84a, emissiveIntensity: 1.6 }));
-  for (const wx of [0.9, o.w - 0.9]) {
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), winMat);
-    win.position.set(wx, o.h * 0.6, o.d - 0.04);
-    g.add(win);
-  }
-  g.position.set(o.x, 0, o.z);
-  shadowAll(g);
-  g.userData.fadeable = true;
-  g.userData.rect = { x: o.x, z: o.z, w: o.w, d: o.d, h: o.h + roofH };
-  return g;
-}
-
-export function makeTree(o) {
-  const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.1, 6), mat('trunk', () => std(tex.wood())));
-  trunk.position.y = 0.55;
-  g.add(trunk);
-  const lm = mat('leaves', () => std(tex.leaves(), { flatShading: true }));
-  const s = 0.9 + (((o.x * 13 + o.z * 7) | 0) % 5) * 0.08;
-  const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8 * s, 0), lm);
-  f1.position.y = 1.5 * s;
-  const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55 * s, 0), lm);
-  f2.position.set(0.1, 2.1 * s, 0.05);
-  g.add(f1, f2);
-  g.position.set(o.x + 0.5, 0, o.z + 0.5);
-  g.rotation.y = (o.x * 1.7 + o.z) % 6;
-  shadowAll(g);
-  g.userData.fadeable = true;
-  g.userData.rect = { x: o.x, z: o.z, w: 1, d: 1, h: 2.6 };
-  return g;
-}
 
 function makeLamp(o) {
   const g = new THREE.Group();
@@ -280,15 +233,6 @@ function makeCrate(o) {
   c.rotation.y = 0.2;
   c.castShadow = c.receiveShadow = true;
   return c;
-}
-
-function makeBush(o) {
-  const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), mat('leaves', () => std(tex.leaves(), { flatShading: true })));
-  b.position.set(o.x + 0.5, 0.3, o.z + 0.5);
-  b.scale.set(1.1, 0.7, 1);
-  b.rotation.y = o.x;
-  b.castShadow = b.receiveShadow = true;
-  return b;
 }
 
 function makeRock(o) {

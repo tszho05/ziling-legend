@@ -17,3 +17,21 @@ export function makeQuestion(learnedIds, { types = QUIZ_TYPES, targetId } = {}) 
     : `選出最適合填在橫線上的成語：\n${target.example}`;
   return { type, prompt, options: choices.map(c => c.word), answer: choices.indexOf(target), idiom: target };
 }
+
+// 戰鬥出題：把「已學成語 × 題型」洗成一疊牌逐張抽，
+// 全部抽完才重洗，並盡量避免連續兩題考同一個成語，所以連續攻擊時題目會一直更換。
+let deck = [], deckKey = '', lastCard = null;
+export function nextQuestion(learnedIds) {
+  const ids = learnedIds.length ? learnedIds : IDIOMS.map(i => i.id);
+  const key = [...ids].sort().join(',');
+  if (key !== deckKey || !deck.length) {
+    deckKey = key;
+    deck = shuffle(ids.flatMap(id => QUIZ_TYPES.map(type => ({ id, type }))));
+  }
+  // 盡量不要連續兩題考同一個成語
+  let i = deck.length - 1;
+  if (lastCard) { const j = deck.findLastIndex(c => c.id !== lastCard.id); if (j >= 0) i = j; }
+  const [card] = deck.splice(i, 1);
+  lastCard = card;
+  return makeQuestion(ids, { targetId: card.id, types: [card.type] });
+}
