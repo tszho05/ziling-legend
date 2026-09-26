@@ -14,9 +14,10 @@ function loadImage(src) {
   });
 }
 
-export async function preloadAssets(keys = Object.keys(ASSETS)) {
+export async function preloadAssets(keys = Object.keys(ASSETS), onProgress = () => {}) {
+  let done = 0;
   await Promise.all(keys.map(async key => {
-    if (cache.has(key)) return;
+    if (cache.has(key)) { onProgress(++done, keys.length); return; }
     const def = ASSETS[key];
     let img = await loadImage(def.path);
     const placeholder = !img;
@@ -37,6 +38,7 @@ export async function preloadAssets(keys = Object.keys(ASSETS)) {
     tex.needsUpdate = true;
     const aspect = (img.width / def.cols) / (img.height / def.rows);
     cache.set(key, { tex, def, aspect, placeholder, alphaTest: placeholder ? 0.5 : 0.35 });
+    onProgress(++done, keys.length);
   }));
 }
 

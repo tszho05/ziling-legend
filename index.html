@@ -15,7 +15,17 @@
 <body>
   <div id="game"></div>
 
-  <div id="loading">載入中……</div>
+  <div id="loading"><div>載入中……</div><div class="loading-track"><div id="loading-bar"></div></div><div id="loading-msg"></div></div>
+  <script>
+    // 載入失敗或停太久時提示重新整理（例如剛更新後瀏覽器暫存了舊檔案）
+    (function () {
+      var msg = function (html) { var l = document.getElementById('loading'); if (l && !l.hidden) document.getElementById('loading-msg').innerHTML = html; };
+      var fail = function (e) { msg('載入失敗，請按 <b>Ctrl+F5</b> 強制重新整理。<br>平板或手機：關閉分頁再開，或稍等幾分鐘再試。<br><small>' + String(e || '').slice(0, 120) + '</small>'); };
+      window.addEventListener('error', function (e) { fail(e.message); });
+      window.addEventListener('unhandledrejection', function (e) { fail(e.reason && e.reason.message || e.reason); });
+      setTimeout(function () { msg('網絡較慢時要多等一會。如果一直停在這裏，請按 <b>Ctrl+F5</b> 重新整理。'); }, 20000);
+    })();
+  </script>
 
   <div id="title" class="screen" hidden>
     <div class="title-logo">字靈傳說</div>

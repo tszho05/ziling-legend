@@ -37,7 +37,11 @@ function loop(now) {
 
 async function boot() {
   setupTouch(document.body);
-  await Promise.all([preloadAssets(), preloadModels()]);
+  const bar = $('#loading-bar');
+  await Promise.all([
+    preloadAssets(undefined, (n, total) => { if (bar) bar.style.width = (n / total * 100) + '%'; }),
+    preloadModels(),
+  ]);
   const missing = Object.keys(ASSETS).filter(isPlaceholder).length;
   $('#placeholder-note').textContent = missing
     ? `美術：${missing}/${Object.keys(ASSETS).length} 個素材仍為佔位圖（紅點標記）`
