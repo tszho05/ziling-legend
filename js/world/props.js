@@ -8,7 +8,7 @@ export function mat(key, make) { if (!matCache.has(key)) matCache.set(key, make(
 export const std = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, roughness: 0.95, metalness: 0, ...extra });
 
 // 方塊各面的 UV 按實際尺寸縮放，讓貼圖密度一致（1 格 = 1 張貼圖）
-function box(w, h, d, material) {
+export function box(w, h, d, material) {
   const geo = new THREE.BoxGeometry(w, h, d);
   const uv = geo.attributes.uv;
   const faces = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]]; // px nx py ny pz nz
@@ -20,10 +20,10 @@ function box(w, h, d, material) {
   m.castShadow = m.receiveShadow = true;
   return m;
 }
-const at = (m, x, y, z) => { m.position.set(x, y, z); return m; };
-const hash = (a, b = 0) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+export const at = (m, x, y, z) => { m.position.set(x, y, z); return m; };
+export const hash = (a, b = 0) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
 
-const M = {
+export const M = {
   base: () => mat('h-base', () => std(tex.stoneBase())),
   plaster: t => mat('h-plaster-' + t, () => std(tex.plaster(t))),
   beam: () => mat('h-beam', () => std(tex.beam())),
@@ -171,7 +171,7 @@ export function makeHouse(o) {
 // ---------------- 樹木 ----------------
 
 // 帶凹凸的圓潤葉團（法線取球面方向，看起來柔和）
-function leafBlob(radius, seed, material) {
+export function leafBlob(radius, seed, material) {
   const geo = new THREE.IcosahedronGeometry(radius, 1);
   const pos = geo.attributes.position, nor = geo.attributes.normal;
   const v = new THREE.Vector3();
@@ -187,7 +187,7 @@ function leafBlob(radius, seed, material) {
   return m;
 }
 
-const TM = {
+export const TM = {
   bark: () => mat('t-bark', () => std(tex.bark())),
   light: () => mat('t-light', () => std(tex.leaves('light'))),
   mid: () => mat('t-mid', () => std(tex.leaves('mid'))),

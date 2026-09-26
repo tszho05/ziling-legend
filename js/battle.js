@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Billboard } from './world/sprites.js';
-import { makeTree } from './world/props.js';
+import { makeTree, makeBush } from './world/props.js';
+import { makeRock, makeStump, makeMushrooms, makeFence } from './world/decor.js';
+import { addSky, addClouds, addHills, addTufts, hash } from './world/scenery.js';
 import { tex } from './world/textures.js';
 import { MONSTERS } from './data/monsters.js';
 import { state, cls, stats, maxHp, save, gainExp, recordKill } from './state.js';
@@ -24,10 +26,16 @@ function tween(ms, fn) {
   });
 }
 
+// 戰鬥場景：郊外小路，背景有樹林、遠山、雲
 function buildArena() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xa8d4f0);
-  scene.fog = new THREE.Fog(0xcfe6d8, 18, 40);
+  const fog = 0xdcebdc;
+  scene.background = new THREE.Color(fog);
+  scene.fog = new THREE.Fog(fog, 22, 60);
+  const center = new THREE.Vector3(0, 0, 0);
+  addSky(scene, { top: 0x6fb2ec, horizon: fog });
+  const updateClouds = addClouds(scene, center, 7);
+  addHills(scene, center, 24);
   scene.add(new THREE.HemisphereLight(0xfff1dc, 0x6a5234, 1.25));
   const sun = new THREE.DirectionalLight(0xffdcaa, 2.5);
   sun.position.set(-6, 14, 8);
@@ -37,22 +45,46 @@ function buildArena() {
   sun.shadow.bias = -0.0008;
   scene.add(sun);
   const gt = tex.grass().clone();
-  gt.repeat.set(60, 60);
+  gt.repeat.set(80, 80);
   gt.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   const dt = tex.dirt().clone();
-  dt.repeat.set(14, 3);
+  dt.repeat.set(16, 3);
   dt.needsUpdate = true;
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(14, 3), new THREE.MeshStandardMaterial({ map: dt, roughness: 1 }));
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(16, 3), new THREE.MeshStandardMaterial({ map: dt, roughness: 1 }));
   path.rotation.x = -Math.PI / 2;
-  path.position.set(0, 0.01, 0.2);
+  path.position.set(0, 0.01, 0.4);
   path.receiveShadow = true;
   scene.add(path);
-  for (let i = 0; i < 14; i++) scene.add(makeTree({ x: -12 + i * 1.8 + (i % 3) * 0.4, z: -6 - (i % 4) }));
-  for (let i = 0; i < 6; i++) scene.add(makeTree({ x: -13 + i * 5, z: -11 }));
+
+  const swayers = [];
+  const tree = o => { const t = makeTree(o); scene.add(t); swayers.push(t.userData.sway); };
+  for (let i = 0; i < 16; i++) tree({ x: -14 + i * 1.8 + (i % 3) * 0.4, z: -5.5 - (i % 4) * 0.9 });
+  for (let i = 0; i < 9; i++) tree({ x: -16 + i * 4, z: -11 - (i % 2) * 2 });
+  for (const [x, z] of [[-7, -3.2], [-1.5, -3.6], [5.5, -3.1], [9, -2.6]]) scene.add(makeBush({ x, z }));
+  for (const [x, z] of [[-9, -1.6], [8, -1.2]]) scene.add(makeRock({ x, z }));
+  scene.add(makeStump({ x: 2.2, z: -3 }));
+  scene.add(makeMushrooms({ x: -4.4, z: -2.6 }));
+  scene.add(makeFence({ x: -12, z: -2.5, len: 4 }));
+  // 草叢（避開中間的小路）
+  const spots = [];
+  for (let i = 0; i < 220; i++) {
+    const x = -16 + hash(i, 21) * 32, z = -8 + hash(i, 22) * 16;
+    if (Math.abs(z - 0.4) > 1.8) spots.push([x, z]);
+  }
+  addTufts(scene, spots, 'grass');
+  addTufts(scene, spots.filter((_, i) => i % 5 === 0).map(([x, z]) => [x + 0.4, z + 0.3]), 'flower');
+
+  scene.userData.animate = (dt, t) => {
+    updateClouds(dt);
+    for (const sw of swayers) {
+      sw.canopy.rotation.z = Math.sin(t * 1.2 + sw.phase) * 0.03;
+      sw.canopy.rotation.x = Math.cos(t * 0.9 + sw.phase) * 0.02;
+    }
+  };
   return scene;
 }
 
@@ -64,6 +96,7 @@ export class Battle {
 
   update(dt) {
     for (const s of this.sprites) s.update(dt);
+    this.scene?.userData.animate?.(dt, performance.now() / 1000);
     this.engine.lookAt(new THREE.Vector3(0, 1.5, 0.6));
   }
 

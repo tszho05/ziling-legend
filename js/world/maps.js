@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { tex } from './textures.js';
 import { mat, std, makeHouse, makeTree, makeBush } from './props.js';
+import { makeLamp, makeFountain, makeCrate, makeRock, makeGate, makeMerlons, makeFence, makeSignpost, makeStump, makeMushrooms, makePondDecor } from './decor.js';
+import { addSky, addClouds, addHills, addTufts, animateWater, hash } from './scenery.js';
 
 // 地圖以格子描述。ground：地面種類；solid：是否阻擋。
 // 座標：x 向右、z 向下（朝鏡頭）；格子 (x, z) 的中心在 (x+0.5, z+0.5)。
@@ -23,7 +25,7 @@ export function townLayout() {
   // 城牆（北面中央為城門）
   for (let x = 0; x < W; x++) {
     if (x < 12 || x > 15) { objects.push({ type: 'wall', x, z: 0 }); solid[0][x] = true; }
-    objects.push({ type: 'wall', x, z: D - 1 }); solid[D - 1][x] = true;
+    objects.push({ type: 'wall', x, z: D - 1, low: true }); solid[D - 1][x] = true;
   }
   for (let z = 1; z < D - 1; z++) {
     objects.push({ type: 'wall', x: 0, z }, { type: 'wall', x: W - 1, z });
@@ -57,7 +59,7 @@ export function townLayout() {
     id: 'town', name: '墨香鎮', W, D, ground, solid, objects,
     spawn: { x: 14, z: 18.5 },
     exits: [{ rect: { x: 12, z: 0, w: 4, d: 1 }, to: 'field', spawn: { x: 15, z: 21.5 } }],
-    sky: 0x9fc9ee, fog: 0xc9dff0,
+    sky: 0x6fb2ec, fog: 0xdce9ef,
   };
 }
 
@@ -93,11 +95,21 @@ export function fieldLayout() {
   for (const [x, z] of trees) { if (ground[z][x] === 'dirt') continue; objects.push({ type: 'tree', x, z }); solid[z][x] = true; }
   const rocks = [[7, 7], [22, 12], [17, 8], [12, 18], [27, 17], [10, 15]];
   for (const [x, z] of rocks) { if (ground[z][x] === 'dirt') continue; objects.push({ type: 'rock', x, z }); solid[z][x] = true; }
+  const free = (x, z) => !solid[z][x] && ground[z][x] !== 'dirt' && ground[z][x] !== 'water';
+  // 入口兩旁的木柵欄
+  for (const fx of [9, 16]) {
+    objects.push({ type: 'fence', x: fx, z: 21, len: 4 });
+    for (let x = fx; x < fx + 4; x++) solid[21][x] = true;
+  }
+  objects.push({ type: 'signpost', x: 13, z: 20, text: '往墨香鎮' }); solid[20][13] = true;
+  for (const [x, z] of [[6, 14], [20, 6], [25, 18]]) if (free(x, z)) { objects.push({ type: 'stump', x, z }); solid[z][x] = true; }
+  for (const [x, z] of [[5, 13], [12, 10], [23, 16], [27, 9], [8, 5]]) if (free(x, z)) objects.push({ type: 'mushrooms', x, z });
+  objects.push({ type: 'pond', ...pond });
   return {
     id: 'field', name: '郊區', W, D, ground, solid, objects,
     spawn: { x: 15, z: 21.5 },
     exits: [{ rect: { x: 14, z: D - 1, w: 2, d: 1 }, to: 'town', spawn: { x: 14, z: 1.8 } }],
-    sky: 0xa8d4f0, fog: 0xcfe6d8,
+    sky: 0x6fb2ec, fog: 0xdcebdc,
   };
 }
 
@@ -105,8 +117,12 @@ export function fieldLayout() {
 
 export function buildMap(layout) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(layout.sky);
-  scene.fog = new THREE.Fog(layout.fog, 28, 60);
+  scene.background = new THREE.Color(layout.fog);
+  scene.fog = new THREE.Fog(layout.fog, 30, 75);
+  const center = new THREE.Vector3(layout.W / 2, 0, layout.D / 2);
+  addSky(scene, { top: layout.sky, horizon: layout.fog });
+  const updateClouds = addClouds(scene, center);
+  addHills(scene, center, Math.max(layout.W, layout.D) * 0.75);
   const fadeables = [];
   const lights = [];
   const swayers = []; // 會隨風擺動的樹冠
@@ -165,6 +181,7 @@ export function buildMap(layout) {
     dummy.scale.set(1, 1, 1);
     inst.castShadow = inst.receiveShadow = true;
     scene.add(inst);
+    scene.add(makeMerlons(walls.filter(w => !w.low)));
   }
   for (const o of layout.objects) {
     let obj = null;
@@ -176,6 +193,11 @@ export function buildMap(layout) {
     else if (o.type === 'rock') obj = makeRock(o);
     else if (o.type === 'bush') obj = makeBush(o);
     else if (o.type === 'gate') obj = makeGate(o);
+    else if (o.type === 'fence') obj = makeFence(o);
+    else if (o.type === 'signpost') obj = makeSignpost(o);
+    else if (o.type === 'stump') obj = makeStump(o);
+    else if (o.type === 'mushrooms') obj = makeMushrooms(o);
+    else if (o.type === 'pond') obj = makePondDecor(o);
     if (obj) {
       scene.add(obj);
       if (obj.userData.fadeable) fadeables.push(obj);
@@ -187,73 +209,28 @@ export function buildMap(layout) {
     const a = i / 60 * Math.PI * 2;
     const r = Math.max(layout.W, layout.D) * 0.75 + (i % 3) * 2;
     const t = makeTree({ x: layout.W / 2 + Math.cos(a) * r, z: layout.D / 2 + Math.sin(a) * r * 0.8 - 2 });
+    t.position.y = -0.32;
     if (t.position.z < layout.D + 1) { scene.add(t); swayers.push(t.userData.sway); }
   }
 
-  return { scene, sun, fadeables, lights, swayers, layout };
-}
-
-function shadowAll(g) { g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return g; }
-
-function makeLamp(o) {
-  const g = new THREE.Group();
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2, 6), mat('iron', () => new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.6 })));
-  post.position.y = 1;
-  const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.28), mat('lantern', () => new THREE.MeshStandardMaterial({ color: 0xffe0a0, emissive: 0xffb040, emissiveIntensity: 2.2 })));
-  lantern.position.y = 2.1;
-  const light = new THREE.PointLight(0xffb45a, 6, 6, 1.6);
-  light.position.y = 2.1;
-  g.add(post, lantern, light);
-  g.position.set(o.x + 0.5, 0, o.z + 0.5);
-  post.castShadow = true;
-  g.userData.light = light;
-  return g;
-}
-
-function makeFountain(o) {
-  const g = new THREE.Group();
-  const stone = mat('rockm', () => std(tex.rock()));
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 0.5, 16), stone);
-  base.position.y = 0.25;
-  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.05, 16), new THREE.MeshStandardMaterial({ map: tex.water(), emissive: 0x3a8ad0, emissiveIntensity: 0.6, roughness: 0.2 }));
-  water.position.y = 0.45;
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1.2, 8), stone);
-  col.position.y = 0.9;
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.15, 12), stone);
-  top.position.y = 1.5;
-  g.add(base, water, col, top);
-  g.position.set(o.x + o.w / 2, 0, o.z + o.d / 2);
-  shadowAll(g);
-  return g;
-}
-
-function makeCrate(o) {
-  const c = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mat('crate', () => std(tex.wood())));
-  c.position.set(o.x + 0.5, 0.4, o.z + 0.5);
-  c.rotation.y = 0.2;
-  c.castShadow = c.receiveShadow = true;
-  return c;
-}
-
-function makeRock(o) {
-  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 0), mat('rockm', () => std(tex.rock())));
-  r.material.flatShading = true;
-  r.position.set(o.x + 0.5, 0.3, o.z + 0.5);
-  r.scale.set(1.1, 0.75, 1);
-  r.castShadow = r.receiveShadow = true;
-  return r;
-}
-
-function makeGate(o) {
-  const g = new THREE.Group();
-  const stone = mat('wall', () => std(tex.stoneWall()));
-  for (const dx of [-0.5, o.w + 0.5]) {
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(1, 3.4, 1), stone);
-    tower.position.set(o.x + dx, 1.7, 0.5);
-    g.add(tower);
+  // 草叢與小花：撒在空的草地上
+  const grassSpots = [], flowerSpots = [];
+  for (let z = 0; z < layout.D; z++) for (let x = 0; x < layout.W; x++) {
+    const gnd = layout.ground[z][x];
+    if (layout.solid[z][x] || (gnd !== 'grass' && gnd !== 'flowers')) continue;
+    const k = hash(x, z);
+    if (k < 0.3) grassSpots.push([x + 0.2 + hash(z, x) * 0.6, z + 0.2 + hash(x + 3, z) * 0.6]);
+    else if (k < 0.38 || gnd === 'flowers') flowerSpots.push([x + 0.3 + hash(z, x + 1) * 0.4, z + 0.3 + hash(x, z + 2) * 0.4]);
   }
-  const arch = new THREE.Mesh(new THREE.BoxGeometry(o.w + 2, 0.6, 1), stone);
-  arch.position.set(o.x + o.w / 2, 3.1, 0.5);
-  g.add(arch);
-  return shadowAll(g);
+  // 地圖外的草地也撒一些
+  for (let i = 0; i < 260; i++) {
+    const x = -8 + hash(i, 11) * (layout.W + 16), z = -6 + hash(i, 12) * (layout.D + 14);
+    if (x < -0.5 || x > layout.W + 0.5 || z < -0.5 || z > layout.D + 0.5) grassSpots.push([x, z, -0.32]);
+  }
+  addTufts(scene, grassSpots, 'grass');
+  addTufts(scene, flowerSpots, 'flower');
+
+  const animate = (dt, t) => { updateClouds(dt); animateWater(t); };
+  return { scene, sun, fadeables, lights, swayers, animate, layout };
 }
+
