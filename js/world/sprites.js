@@ -63,8 +63,8 @@ export class Billboard {
       transparent: !!opts.transparent,
     });
     this.mesh = new THREE.Mesh(geo, mat);
-    // 角色只用腳下的柔和影子，不投射即時陰影（否則會出現兩個影）
-    this.mesh.castShadow = opts.castShadow ?? false;
+    // 角色只用太陽照出的剪影影子（即時陰影），預設不加腳下圓影，避免出現兩個影
+    this.mesh.castShadow = opts.castShadow ?? true;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking, map: this.tex, alphaTest,
     });
@@ -73,7 +73,7 @@ export class Billboard {
     this.pivot.add(this.mesh);
     this.mesh.rotation.x = -SPRITE_PITCH;
 
-    if (opts.shadow !== false) {
+    if (opts.blobShadow) {
       const blob = new THREE.Mesh(
         new THREE.PlaneGeometry(1, 1),
         new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, opacity: 0.8, depthWrite: false }),
