@@ -31,6 +31,11 @@ HD-2D 風格（參考《歧路旅人》）的成語學習 JRPG 網頁遊戲，�
 - 美術：手繪高清素材自動平滑取樣；暖色調、輕景深
 - 成語冊、任務追蹤、存檔（瀏覽器 localStorage）
 
+## 素材來源
+
+- 墨香鎮房屋模型：[KayKit Medieval Hexagon Pack](https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0)，Kay Lousberg 製作，CC0 授權（見 `models/kaykit/LICENSE.txt`）
+- 角色、怪物與特效：Codex generate2dsprite 生成
+
 ## 結構
 
 - `js/data/`：成語、職業、怪物、NPC 與任務、美術素材清單（改內容主要改這裏）

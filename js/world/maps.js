@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { tex } from './textures.js';
+import { kaykitHouse } from './models.js';
 import { mat, std, makeHouse, makeTree, makeBush } from './props.js';
 import { makeLamp, makeFountain, makeCrate, makeRock, makeGate, makeMerlons, makeFence, makeSignpost, makeStump, makeMushrooms, makePondDecor } from './decor.js';
 import { makeBridge, makeLog, makeFallenTree, makeBarrier, makeCliffs, makeHill, makeTent, makeCampfire, makeAltar } from './fieldprops.js';
@@ -258,9 +259,10 @@ export function buildMap(layout) {
     scene.add(inst);
     scene.add(makeMerlons(walls.filter(w => !w.low)));
   }
+  let houseIdx = 0;
   for (const o of layout.objects) {
     let obj = null;
-    if (o.type === 'house') obj = makeHouse(o);
+    if (o.type === 'house') obj = kaykitHouse(o, houseIdx++) || makeHouse(o);
     else if (o.type === 'tree') obj = makeTree(o);
     else if (o.type === 'lamp') { obj = makeLamp(o); lights.push(obj.userData.light); }
     else if (o.type === 'fountain') obj = makeFountain(o);

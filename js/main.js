@@ -1,5 +1,6 @@
 import { Engine } from './world/engine.js';
 import { preloadAssets, isPlaceholder } from './world/sprites.js';
+import { preloadModels } from './world/models.js';
 import { ASSETS } from './data/assets.js';
 import { CLASSES } from './data/classes.js';
 import { Overworld } from './overworld.js';
@@ -36,7 +37,7 @@ function loop(now) {
 
 async function boot() {
   setupTouch(document.body);
-  await preloadAssets();
+  await Promise.all([preloadAssets(), preloadModels()]);
   const missing = Object.keys(ASSETS).filter(isPlaceholder).length;
   $('#placeholder-note').textContent = missing
     ? `美術：${missing}/${Object.keys(ASSETS).length} 個素材仍為佔位圖（紅點標記）`

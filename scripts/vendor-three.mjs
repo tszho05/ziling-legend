@@ -11,6 +11,8 @@ const files = [
     .map(n => [`examples/jsm/postprocessing/${n}.js`, `addons/postprocessing/${n}.js`]),
   ...['CopyShader', 'LuminosityHighPassShader', 'OutputShader', 'HorizontalTiltShiftShader', 'VerticalTiltShiftShader']
     .map(n => [`examples/jsm/shaders/${n}.js`, `addons/shaders/${n}.js`]),
+  ['examples/jsm/loaders/GLTFLoader.js', 'addons/loaders/GLTFLoader.js'],
+  ['examples/jsm/utils/BufferGeometryUtils.js', 'addons/utils/BufferGeometryUtils.js'],
 ];
 fs.rmSync(out, { recursive: true, force: true });
 for (const [from, to] of files) {
