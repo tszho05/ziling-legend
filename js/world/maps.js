@@ -50,8 +50,6 @@ export function townLayout() {
     for (let z = h.z; z < h.z + h.d; z++) for (let x = h.x; x < h.x + h.w; x++) solid[z][x] = true;
   }
   objects.push({ type: 'fountain', x: 13, z: 11, w: 2, d: 2 });
-  objects.push({ type: 'bench', x: 11, z: 11, rot: Math.PI / 2 }); solid[11][11] = true;
-  objects.push({ type: 'bench', x: 16, z: 12, rot: -Math.PI / 2 }); solid[12][16] = true;
   objects.push({ type: 'flowerbed', x: 13, z: 10, w: 2 }); solid[10][13] = solid[10][14] = true;
   objects.push({ type: 'flowerbed', x: 13, z: 13, w: 2 }); solid[13][13] = solid[13][14] = true;
   for (let z = 11; z < 13; z++) for (let x = 13; x < 15; x++) solid[z][x] = true;
