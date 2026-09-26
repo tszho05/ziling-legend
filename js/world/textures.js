@@ -151,6 +151,10 @@ export const tex = {
     for (let i = 0; i < 26; i++) blob(g, s, (r() * s) | 0, (r() * s) | 0, 2 + ((r() * 2) | 0), pick(r, pal.slice(0, 2)));
     for (let i = 0; i < 14; i++) blob(g, s, (r() * s) | 0, (r() * s) | 0, 1, pal[3]);
   }),
+  mud: () => make('mud', (g, s, r) => {
+    noise(g, s, r, ['#7d6a4c', '#746246', '#86735a', '#6b5a40'], 2);
+    for (let i = 0; i < 10; i++) px(g, pick(r, ['#9a8a70', '#5e4f38']), (r() * s) | 0, (r() * s) | 0, 2, 1);
+  }),
   water: () => make('water', (g, s, r) => {
     noise(g, s, r, ['#4a93d6', '#529ddf', '#4389cb'], 2);
     for (let i = 0; i < 6; i++) px(g, '#cdeaff', (r() * s) | 0, (r() * s) | 0, 4, 1);

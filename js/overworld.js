@@ -155,7 +155,7 @@ export class Overworld {
     this.updateGuide(dt);
     // 樹冠隨風輕輕擺動、雲飄動、水面流動
     const tt = performance.now() / 1000;
-    this.world.animate(dt, tt);
+    this.world.animate(dt, tt, this.player.pivot.position);
     for (const sw of this.world.swayers) {
       sw.canopy.rotation.z = Math.sin(tt * 1.2 + sw.phase) * 0.03;
       sw.canopy.rotation.x = Math.cos(tt * 0.9 + sw.phase) * 0.02;

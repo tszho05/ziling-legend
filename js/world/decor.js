@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { tex } from './textures.js';
 import { mat, std, box, at, hash, M, TM, leafBlob } from './props.js';
+import { makeWaterDisc, makeCoins, makeFountainSpray } from './fx.js';
 
 // 其他佈景物件：路燈、噴水池、城門、柵欄、石頭、池塘等
 
@@ -46,35 +47,78 @@ export function makeLamp(o) {
 
 export function makeFountain(o) {
   const g = new THREE.Group();
-  const stone = mat('f-stone', () => std(tex.stoneWall()));
-  const waterM = mat('f-water', () => new THREE.MeshStandardMaterial({ map: tex.water(), emissive: 0x2f7fc4, emissiveIntensity: 0.55, roughness: 0.15 }));
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 0.5, 8), stone);
-  base.position.y = 0.25;
+  const stone = mat('f-stone', () => std(tex.stoneWall(), { side: THREE.DoubleSide }));
+  // 下層水池：開口的石牆 + 池底 + 水面 + 錢幣
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 0.55, 8, 1, true), stone);
+  wall.position.y = 0.275;
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.5, 8, 1, true), stone);
+  inner.position.y = 0.3;
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.0, 8), mat('f-floor', () => std(tex.stoneBase())));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = 0.12;
   const rim = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.09, 6, 8), M.base());
-  rim.rotation.x = Math.PI / 2; rim.rotation.z = Math.PI / 8; rim.position.y = 0.52;
-  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.05, 16), waterM);
-  water.position.y = 0.46;
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 1.1, 8), stone);
+  rim.rotation.x = Math.PI / 2; rim.rotation.z = Math.PI / 8; rim.position.y = 0.56;
+  const water = makeWaterDisc(0.96);
+  water.position.y = 0.42;
+  const coins = makeCoins(9, 0.9, 0.135);
+  // 中柱與上層水盆
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 1.2, 8), stone);
   col.position.y = 0.95;
   const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.22, 8), stone);
   bowl.position.y = 1.5;
-  const bowlWater = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 12), waterM);
-  bowlWater.position.y = 1.6;
-  const top = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), stone);
-  top.position.y = 1.75;
-  // 從上層水盆邊流下的幾道細水柱
-  const streamM = mat('f-stream', () => new THREE.MeshStandardMaterial({ color: 0xd8f0ff, emissive: 0x5aa8e0, emissiveIntensity: 0.6, transparent: true, opacity: 0.55, depthWrite: false }));
+  const bowlWater = makeWaterDisc(0.44, { alpha: 0.85 });
+  bowlWater.position.y = 1.62;
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.25, 8), stone);
+  top.position.y = 1.72;
+  // 從上層水盆邊流下的細水柱
+  const streamM = mat('f-stream', () => new THREE.MeshStandardMaterial({ color: 0xd8f0ff, emissive: 0x5aa8e0, emissiveIntensity: 0.5, transparent: true, opacity: 0.35, depthWrite: false }));
   const streams = new THREE.Group();
-  for (let i = 0; i < 6; i++) {
-    const a = i / 6 * Math.PI * 2;
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 1.08, 5), streamM);
-    st.position.set(Math.cos(a) * 0.49, 1.0, Math.sin(a) * 0.49);
+  for (let i = 0; i < 8; i++) {
+    const ang = i / 8 * Math.PI * 2;
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, 1.12, 5), streamM);
+    st.position.set(Math.cos(ang) * 0.5, 1.02, Math.sin(ang) * 0.5);
     streams.add(st);
   }
-  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-  g.add(base, rim, water, col, bowl, bowlWater, top, streams);
-  [base, rim, col, bowl, top].forEach(m => { m.castShadow = true; m.receiveShadow = true; });
+  [wall, inner, rim, col, bowl, top].forEach(m => { m.castShadow = true; m.receiveShadow = true; });
+  floor.receiveShadow = true;
+  const spray = makeFountainSpray({ topY: 1.85, bowlR: 0.44, bowlY: 1.62, basinY: 0.42, basinR: 0.95 });
+  g.add(wall, inner, floor, rim, water, coins, col, bowl, bowlWater, top, streams, spray.group);
   g.position.set(o.x + o.w / 2, 0, o.z + o.d / 2);
+  g.userData.tick = (t, dt) => spray.tick(t, dt);
+  return g;
+}
+
+// 長椅（rot：面向的方向）
+export function makeBench(o) {
+  const g = new THREE.Group();
+  g.add(at(box(1.1, 0.07, 0.36, M.wood()), 0, 0.42, 0));
+  g.add(at(box(1.1, 0.3, 0.06, M.wood()), 0, 0.68, -0.17));
+  for (const x of [-0.45, 0.45]) {
+    g.add(at(box(0.07, 0.42, 0.3, M.iron()), x, 0.21, 0));
+    g.add(at(box(0.07, 0.35, 0.05, M.iron()), x, 0.62, -0.17));
+  }
+  g.rotation.y = o.rot || 0;
+  g.position.set(o.x + 0.5, 0, o.z + 0.5);
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
+// 花圃：石邊框 + 泥土 + 一簇簇花
+export function makeFlowerBed(o) {
+  const g = new THREE.Group();
+  const w = o.w || 2;
+  g.add(at(box(w - 0.1, 0.25, 0.9, M.base()), w / 2, 0.125, 0.5));
+  g.add(at(box(w - 0.3, 0.05, 0.7, mat('f-soil', () => std(tex.mud()))), w / 2, 0.26, 0.5));
+  const cols = [0xff7aa8, 0xffd84a, 0xffffff, 0xff5a4a, 0xc49bff, 0xff9a3a];
+  for (let i = 0; i < w * 7; i++) {
+    const x = 0.25 + hash(i, o.x) * (w - 0.5), z = 0.25 + hash(o.z, i) * 0.5;
+    const leaf = leafBlob(0.12, i + o.x * 3, TM.mid());
+    leaf.scale.y = 0.7;
+    g.add(at(leaf, x, 0.34, z));
+    const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 0), mat('f-fl-' + (i % cols.length), () => new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.8 })));
+    g.add(at(fl, x + 0.03, 0.45, z + 0.02));
+  }
+  g.position.set(o.x, 0, o.z);
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   return g;
 }
 
@@ -212,7 +256,7 @@ export function makePondDecor(p) {
   for (let i = 0; i < 5; i++) {
     const pad = new THREE.Mesh(new THREE.CircleGeometry(0.2 + hash(i, 2) * 0.1, 10, 0.3, Math.PI * 1.8), padM);
     pad.rotation.x = -Math.PI / 2;
-    g.add(at(pad, p.x + 0.5 + hash(i, 3) * (p.w - 1), -0.1, p.z + 0.5 + hash(i, 4) * (p.d - 1)));
+    g.add(at(pad, p.x + 0.5 + hash(i, 3) * (p.w - 1), 0.045, p.z + 0.5 + hash(i, 4) * (p.d - 1)));
   }
   const reedM = mat('p-reed', () => new THREE.MeshStandardMaterial({ color: 0x6b8f3a, roughness: 1 }));
   const tipM = mat('p-reedtip', () => new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: 1 }));

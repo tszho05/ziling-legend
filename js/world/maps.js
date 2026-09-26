@@ -3,6 +3,9 @@ import { tex } from './textures.js';
 import { mat, std, makeHouse, makeTree, makeBush } from './props.js';
 import { makeLamp, makeFountain, makeCrate, makeRock, makeGate, makeMerlons, makeFence, makeSignpost, makeStump, makeMushrooms, makePondDecor } from './decor.js';
 import { makeBridge, makeLog, makeFallenTree, makeBarrier, makeCliffs, makeHill, makeTent, makeCampfire, makeAltar } from './fieldprops.js';
+import { makeBlendedGround, pathEdgeSpots, makeWaterRect, tickWater, makeAmbience, makeSunbeams } from './fx.js';
+import { makeRiverBanks, makeBridgeSplash } from './fieldprops.js';
+import { makeBench, makeFlowerBed } from './decor.js';
 import { addSky, addClouds, addHills, addTufts, animateWater, hash } from './scenery.js';
 
 // 地圖以格子描述。ground：地面種類；solid：是否阻擋。
@@ -46,6 +49,10 @@ export function townLayout() {
     for (let z = h.z; z < h.z + h.d; z++) for (let x = h.x; x < h.x + h.w; x++) solid[z][x] = true;
   }
   objects.push({ type: 'fountain', x: 13, z: 11, w: 2, d: 2 });
+  objects.push({ type: 'bench', x: 11, z: 11, rot: Math.PI / 2 }); solid[11][11] = true;
+  objects.push({ type: 'bench', x: 16, z: 12, rot: -Math.PI / 2 }); solid[12][16] = true;
+  objects.push({ type: 'flowerbed', x: 13, z: 10, w: 2 }); solid[10][13] = solid[10][14] = true;
+  objects.push({ type: 'flowerbed', x: 13, z: 13, w: 2 }); solid[13][13] = solid[13][14] = true;
   for (let z = 11; z < 13; z++) for (let x = 13; x < 15; x++) solid[z][x] = true;
   for (const [x, z] of [[7, 8], [20, 8], [7, 15], [20, 15], [11, 1], [16, 1]]) {
     objects.push({ type: 'lamp', x, z }); solid[z][x] = true;
@@ -110,6 +117,7 @@ export function fieldLayout(gates = {}) {
     if (x !== 20 && x !== 21) solid[z][x] = true;
   }
   objects.push({ type: 'bridge', x: 20, z: 21, w: 2, d: 2 });
+  objects.push({ type: 'riverbanks', x0: 1, x1: W - 1, zTop: 21, zBot: 23, skip: [19.4, 22.6] });
   if (!gates.bridge) { put({ type: 'log', x: 20, z: 23, w: 2 }, [[20, 23], [21, 23]]); closedGates.push({ id: 'bridge', x: 21, z: 23.5 }); }
 
   // 森林與營地之間的岩壁（z 11），缺口 x 14–15
@@ -166,6 +174,10 @@ export function fieldLayout(gates = {}) {
     spawn: { x: 21, z: 32.3 },
     exits: [{ rect: { x: 20, z: D - 1, w: 2, d: 1 }, to: 'town', spawn: { x: 14, z: 1.8 } }],
     sky: 0x6fb2ec, fog: 0xdcebdc,
+    blendGround: true,
+    waterRects: [{ x: 1, z: 21, w: W - 2, d: 2, flow: [0.35, 0] }, { x: pond.x, z: pond.z, w: pond.w, d: pond.d, flow: [0.04, 0.02] }],
+    sunbeams: [[8, 15], [12, 18.5], [27, 14], [33, 17], [18.5, 13.2], [37, 16.5], [5, 19]],
+    ambience: true,
   };
 }
 
@@ -200,7 +212,8 @@ export function buildMap(layout) {
   outer.material.map.repeat.set(200, 200);
   outer.material.map.needsUpdate = true;
   outer.rotation.x = -Math.PI / 2;
-  outer.position.set(layout.W / 2, -0.32, layout.D / 2);
+  const outerY = layout.blendGround ? -0.01 : -0.32;
+  outer.position.set(layout.W / 2, outerY, layout.D / 2);
   outer.receiveShadow = true;
   scene.add(outer);
 
@@ -209,7 +222,11 @@ export function buildMap(layout) {
   for (let z = 0; z < layout.D; z++) for (let x = 0; x < layout.W; x++) (byType[layout.ground[z][x]] ||= []).push([x, z]);
   const tileGeo = new THREE.BoxGeometry(1, 0.3, 1);
   const dummy = new THREE.Object3D();
-  for (const [type, cells] of Object.entries(byType)) {
+  if (layout.blendGround) {
+    scene.add(makeBlendedGround(layout));
+    for (const w of layout.waterRects || []) scene.add(makeWaterRect(w.x, w.z, w.w, w.d, { flow: w.flow }));
+  }
+  for (const [type, cells] of Object.entries(layout.blendGround ? {} : byType)) {
     const m = type === 'water'
       ? std(tex.water(), { emissive: 0x1a4a80, emissiveIntensity: 0.25, roughness: 0.3 })
       : std(tex[type]());
@@ -264,6 +281,9 @@ export function buildMap(layout) {
     else if (o.type === 'tent') obj = makeTent(o);
     else if (o.type === 'campfire') obj = makeCampfire(o);
     else if (o.type === 'altar') obj = makeAltar(o);
+    else if (o.type === 'riverbanks') obj = makeRiverBanks(o);
+    else if (o.type === 'bench') obj = makeBench(o);
+    else if (o.type === 'flowerbed') obj = makeFlowerBed(o);
     if (obj) {
       scene.add(obj);
       if (obj.userData.fadeable) fadeables.push(obj);
@@ -276,7 +296,7 @@ export function buildMap(layout) {
     const a = i / 60 * Math.PI * 2;
     const r = Math.max(layout.W, layout.D) * 0.75 + (i % 3) * 2;
     const t = makeTree({ x: layout.W / 2 + Math.cos(a) * r, z: layout.D / 2 + Math.sin(a) * r * 0.8 - 2 });
-    t.position.y = -0.32;
+    t.position.y = outerY;
     if (t.position.z < layout.D + 1) { scene.add(t); swayers.push(t.userData.sway); }
   }
 
@@ -292,12 +312,19 @@ export function buildMap(layout) {
   // 地圖外的草地也撒一些
   for (let i = 0; i < 260; i++) {
     const x = -8 + hash(i, 11) * (layout.W + 16), z = -6 + hash(i, 12) * (layout.D + 14);
-    if (x < -0.5 || x > layout.W + 0.5 || z < -0.5 || z > layout.D + 0.5) grassSpots.push([x, z, -0.32]);
+    if (x < -0.5 || x > layout.W + 0.5 || z < -0.5 || z > layout.D + 0.5) grassSpots.push([x, z, outerY]);
   }
+  if (layout.blendGround) grassSpots.push(...pathEdgeSpots(layout));
   addTufts(scene, grassSpots, 'grass');
+  if (layout.id === 'field') {
+    const sp = makeBridgeSplash(20, 21, 2, 2);
+    scene.add(sp.group); tickers.push(sp.tick);
+  }
+  if (layout.sunbeams) { const sb = makeSunbeams(layout.sunbeams); scene.add(sb.group); tickers.push(sb.tick); }
+  if (layout.ambience) { const am = makeAmbience(); scene.add(am.group); tickers.push(am.tick); }
   addTufts(scene, flowerSpots, 'flower');
 
-  const animate = (dt, t) => { updateClouds(dt); animateWater(t); for (const f of tickers) f(t); };
+  const animate = (dt, t, focus) => { updateClouds(dt); animateWater(t); tickWater(t); for (const f of tickers) f(t, dt, focus); };
   return { scene, sun, fadeables, lights, swayers, animate, layout };
 }
 

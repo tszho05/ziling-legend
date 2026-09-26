@@ -194,3 +194,68 @@ export function makeAltar(o) {
   g.userData.tick = t => { runeM.opacity = 0.4 + Math.sin(t * 2) * 0.2; rune.rotation.z = t * 0.2; };
   return shadow(g);
 }
+
+// 河岸：沿兩岸散佈石頭和蘆葦（避開木橋）
+export function makeRiverBanks(o) {
+  const g = new THREE.Group();
+  const rockM = mat('p-rock', () => std(tex.rock()));
+  const reedM = mat('p-reed', () => new THREE.MeshStandardMaterial({ color: 0x6b8f3a, roughness: 1 }));
+  const tipM = mat('p-reedtip', () => new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: 1 }));
+  let n = 0;
+  for (const [z, side] of [[o.zTop, -1], [o.zBot, 1]]) {
+    for (let x = o.x0; x < o.x1; x += 0.45 + hash(x, z) * 0.5) {
+      if (x > o.skip[0] && x < o.skip[1]) continue;
+      const k = hash(x * 3, z);
+      if (k < 0.45) {
+        const r = leafBlob(0.12 + hash(x, z + 1) * 0.14, n++, rockM);
+        r.scale.y = 0.55;
+        g.add(at(r, x, 0.04, z + side * (0.05 + hash(z, x) * 0.15)));
+      } else if (k < 0.7) {
+        for (let i = 0; i < 3; i++) {
+          const h = 0.5 + hash(x + i, z) * 0.45, rx = x + (i - 1) * 0.08, rz = z - side * 0.08 + hash(i, x) * 0.1;
+          g.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, h, 4), reedM), rx, h / 2, rz));
+          if (i === 1) g.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.14, 6), tipM), rx, h - 0.05, rz));
+        }
+      }
+    }
+  }
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  return g;
+}
+
+// 橋墩旁的水花與漣漪
+export function makeBridgeSplash(x, z, w, d) {
+  const group = new THREE.Group();
+  const posts = [];
+  for (const px of [x - 0.1, x + w + 0.1]) for (let i = 0; i <= 3; i++) posts.push([px, z - 0.4 + i * (d + 0.8) / 3]);
+  const wet = posts.filter(([, pz]) => pz > z && pz < z + d);
+  const ringM = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false });
+  const rings = wet.map(([px, pz], i) => {
+    const r = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.15, 16), ringM());
+    r.rotation.x = -Math.PI / 2;
+    r.position.set(px, 0.045, pz);
+    r.userData.phase = i * 0.7;
+    group.add(r);
+    return r;
+  });
+  const foamM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false });
+  const bits = [];
+  for (const [px, pz] of wet) for (let k = 0; k < 4; k++) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.035, 5, 4), foamM);
+    b.userData = { px: px + 0.12, pz: pz + (k - 1.5) * 0.08, ph: k * 1.3 + px };
+    group.add(b);
+    bits.push(b);
+  }
+  const tick = t => {
+    for (const r of rings) {
+      const a = ((t * 0.8 + r.userData.phase) % 1);
+      r.scale.setScalar(1 + a * 2.2);
+      r.material.opacity = 0.5 * (1 - a);
+    }
+    for (const b of bits) {
+      const a = (t * 1.6 + b.userData.ph) % 1;
+      b.position.set(b.userData.px + a * 0.4, 0.05 + Math.sin(a * Math.PI) * 0.15, b.userData.pz);
+    }
+  };
+  return { group, tick };
+}
