@@ -8,6 +8,7 @@ import { input } from './input.js';
 import { ui } from './ui.js';
 import { makeQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
+import { computeObjective } from './objective.js';
 
 // 怪物步伐：speed 速度、rest 停留秒數範圍、range 遊走半徑；史萊姆用跳躍
 const MOVE_STYLE = {
@@ -82,6 +83,9 @@ export class Overworld {
         this.monsters.push({ id: i, enc, kind, sprite: b, walk, home: new THREE.Vector2(enc.x + 0.5, enc.z + 0.5), t: Math.random() * 10, mode: 'idle', timer: Math.random() * 2, face: -1 });
       });
     }
+    this.guide = makeGuideArrow();
+    this.world.scene.add(this.guide);
+    this.objTimer = 0;
     this.engine.setScene(this.world.scene);
     music.play(mapId);
     this.engine.lookAt(this.cameraTarget(), true);
@@ -144,6 +148,7 @@ export class Overworld {
     }
     this.updateMonsters(dt);
     this.updateOcclusion();
+    this.updateGuide(dt);
     // 樹冠隨風輕輕擺動、雲飄動、水面流動
     const tt = performance.now() / 1000;
     this.world.animate(dt, tt);
@@ -229,6 +234,26 @@ export class Overworld {
       }
     }
     m.timer = 1;
+  }
+
+  // 「下一步」提示欄與腳下指引箭頭
+  updateGuide(dt) {
+    this.objTimer -= dt;
+    if (this.objTimer <= 0) {
+      this.objTimer = 0.25;
+      this.objective = computeObjective(this, IDIOMS_TO_LEAVE);
+      ui.setObjective(this.objective.text);
+    }
+    const p = this.player.pivot.position, t = this.objective?.target;
+    const g = this.guide;
+    const dist = t ? Math.hypot(t.x - p.x, t.z - p.z) : 0;
+    g.visible = !!t && dist > 1.4 && !ui.busy && !this.transitioning;
+    if (!g.visible) return;
+    const ang = Math.atan2(t.x - p.x, t.z - p.z);
+    const pulse = 1.15 + Math.sin(performance.now() / 180) * 0.15;
+    g.position.set(p.x + Math.sin(ang) * pulse, 0.07, p.z + Math.cos(ang) * pulse);
+    g.rotation.y = ang;
+    g.children[0].material.opacity = 0.85 + Math.sin(performance.now() / 180) * 0.15;
   }
 
   // 玩家被房屋或樹擋住時，把遮擋物變半透明
@@ -411,6 +436,22 @@ export class Overworld {
     }
     await ui.say(def.name, ['目前沒有新的任務了，謝謝你！']);
   }
+}
+
+// ---- 指引箭頭（平放在地上，指向目標） ----
+function makeGuideArrow() {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0.45); s.lineTo(0.32, 0.05); s.lineTo(0.12, 0.05); s.lineTo(0.12, -0.3);
+  s.lineTo(-0.12, -0.3); s.lineTo(-0.12, 0.05); s.lineTo(-0.32, 0.05); s.closePath();
+  const geo = new THREE.ShapeGeometry(s);
+  geo.rotateX(-Math.PI / 2); // 箭頭尖端指向 -z，再由 rotation.y 轉向
+  geo.rotateY(Math.PI);
+  geo.scale(1.8, 1, 1.8);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffc21a, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
+  m.renderOrder = 5;
+  const g = new THREE.Group();
+  g.add(m);
+  return g;
 }
 
 // ---- 提示符號 ----

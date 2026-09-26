@@ -181,6 +181,14 @@ export const ui = {
       : '';
   },
 
+  setObjective(text) {
+    const el = $('#hud-next');
+    if (el.dataset.text === text) return;
+    el.dataset.text = text;
+    el.innerHTML = `<span>下一步</span>${esc(text)}`;
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  },
+
   setArea(name) { $('#hud-area').textContent = name; },
 
   openBook() {
