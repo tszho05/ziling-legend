@@ -495,8 +495,7 @@ export class Overworld {
           await ui.say(def.name, [`「${q.title}」完成了，辛苦你了！`, `獲得經驗值 ${q.reward.exp}。`, ...(ups ? [`等級提升到 Lv.${state.level}！`] : [])]);
           if (newSkill) {
             sfx('learn');
-            ui.toast(`學會新技能「${newSkill.name}」！`);
-            await ui.say('', [`你學會了新技能「${newSkill.name}」！`, newSkill.desc, `這招要用字方塊拼出成語才能施放，用後要冷卻 ${newSkill.cd - 1} 回合。`]);
+            await ui.skillCard(newSkill);
           }
           continue;
         }

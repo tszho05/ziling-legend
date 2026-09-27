@@ -76,6 +76,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0c0b12; col
 .card-row { text-align: left; font-size: 19px; line-height: 1.7; margin: 8px 0; }
 .card-row b { display: inline-block; color: #1c1408; background: var(--accent); border-radius: 4px; padding: 0 8px; margin-right: 10px; font-size: 15px; }
 #card .btn, .quiz-feedback .btn { margin-top: 16px; }
+.skill-book { display: block; width: 96px; height: 78px; margin: 14px auto 6px; filter: drop-shadow(0 0 12px rgba(242,182,50,.55)); animation: book-pop .5s ease-out; }
+@keyframes book-pop { from { transform: scale(.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.skill-name { font-size: clamp(30px, 7vw, 40px); color: var(--accent); margin-bottom: 6px; }
+#card .skill-desc { text-align: center; }
+.skill-meta { color: var(--muted); font-size: 15px; }
 
 .quiz-title { color: var(--accent); font-size: 18px; margin-bottom: 10px; }
 .quiz-prompt { font-size: 21px; line-height: 1.7; white-space: pre-wrap; margin-bottom: 16px; }

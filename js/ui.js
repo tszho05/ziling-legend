@@ -105,6 +105,31 @@ export const ui = {
     });
   },
 
+  // 技能卡（完成任務解鎖新技能時彈出）
+  skillCard(skill) {
+    const box = $('#card');
+    setDepth(1);
+    return new Promise(resolve => {
+      box.innerHTML = `
+        <div class="card-head">學會新技能！</div>
+        <svg class="skill-book" viewBox="0 0 64 52" aria-hidden="true">
+          <path d="M32 10 C24 4 12 4 4 7 V47 C12 44 24 44 32 50 C40 44 52 44 60 47 V7 C52 4 40 4 32 10Z" fill="#7a3b1e" stroke="#3b1a0a" stroke-width="2"/>
+          <path d="M32 12 C25 7 14 7 8 9 V43 C15 41 25 41 32 46Z" fill="#fff4d6"/>
+          <path d="M32 12 C39 7 50 7 56 9 V43 C49 41 39 41 32 46Z" fill="#fbe9bf"/>
+          <path d="M32 12 V46" stroke="#c9a45c" stroke-width="1.5"/>
+          <path d="M44 16 l2.5 5.5 6 .6 -4.5 4 1.3 5.9 -5.3 -3.1 -5.3 3.1 1.3 -5.9 -4.5 -4 6 -.6Z" fill="#f2b632"/>
+        </svg>
+        <div class="skill-name">${esc(skill.name)}</div>
+        <div class="card-row skill-desc">${esc(skill.desc)}</div>
+        <div class="skill-meta">字方塊題施放・用後冷卻 ${skill.cd - 1} 回合</div>
+        <button class="btn primary">知道了！</button>`;
+      box.hidden = false;
+      const done = () => { box.hidden = true; keyHandler = null; setDepth(-1); resolve(); };
+      box.querySelector('button').onclick = done;
+      keyHandler = e => { if (['Space', 'Enter', 'KeyZ'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); done(); } };
+    });
+  },
+
   // 成語題：回傳是否答對
   quiz(q, { title = '成語挑戰' } = {}) {
     const box = $('#quiz');
