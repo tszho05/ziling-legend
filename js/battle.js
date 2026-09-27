@@ -151,6 +151,8 @@ export class Battle {
     let result = null;
     while (!result) {
       const act = await this.heroTurn();
+      // 封印在英雄行動後才倒數，所以會完整封住 2 個回合
+      if (this.sealed && this.enemies.some(e => e.alive) && --this.sealed.turns <= 0) { this.log(`「${cls().skills.find(s => s.id === this.sealed.id).name}」的封印解除了！`); this.sealed = null; await sleep(700); }
       if (act === 'flee') { result = 'flee'; break; }
       if (this.enemies.every(e => !e.alive)) { result = 'win'; break; }
       for (const e of this.enemies) {
@@ -231,7 +233,6 @@ export class Battle {
   }
 
   async heroTurn() {
-    if (this.sealed && --this.sealed.turns <= 0) { this.log(`「${cls().skills.find(s => s.id === this.sealed.id).name}」的封印解除了！`); this.sealed = null; await sleep(700); }
     for (;;) {
       this.log(`${cls().name}要怎樣做？`);
       const cmd = await this.command();
