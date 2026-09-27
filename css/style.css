@@ -232,3 +232,21 @@ body.cutscene::before, body.cutscene::after { height: 9vh; }
 .tile-btns { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
 .tile-btns .btn[disabled] { opacity: .4; cursor: not-allowed; }
 @media (max-width: 420px) { .tile, .tile-slot { width: 54px; height: 54px; font-size: 26px; } .tile-pool { grid-template-columns: repeat(4, 54px); } }
+
+/* 開場動畫 */
+#intro-caption { position: fixed; left: 50%; bottom: 14vh; transform: translateX(-50%); width: min(900px, calc(100vw - 32px)); text-align: center; z-index: 24; pointer-events: none;
+  font-size: clamp(20px, 3.2vw, 32px); line-height: 1.6; color: #fff7e0; text-shadow: 0 2px 8px rgba(0,0,0,.9), 0 0 24px rgba(0,0,0,.6); opacity: 0; transition: opacity .6s, transform .6s; }
+#intro-caption.show { opacity: 1; }
+#intro-caption b { color: var(--accent); }
+#intro-caption b.bad { color: #d99bff; }
+#intro-caption.big { bottom: auto; top: 16vh; }
+.intro-title { font-size: clamp(34px, 6vw, 64px); color: var(--accent); letter-spacing: .15em; text-shadow: 0 0 24px rgba(255, 190, 80, .7), 0 4px 0 #5a3d12; animation: introTitle 1.2s ease-out; }
+.intro-sub { font-size: clamp(16px, 2.2vw, 22px); margin-top: 10px; }
+@keyframes introTitle { from { letter-spacing: .6em; opacity: 0; } }
+#intro-skip { position: fixed; right: 16px; bottom: calc(9vh + 12px); z-index: 25; opacity: .8; }
+/* 操作提示 */
+#controls-hint { position: fixed; left: 12px; bottom: 12px; z-index: 15; background: var(--panel); border: 2px solid var(--border-dim); border-radius: 8px; padding: 8px 14px; font-size: 15px; line-height: 1.7; opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s; pointer-events: none; }
+#controls-hint.show { opacity: 1; transform: none; }
+#controls-hint b { display: inline-block; background: var(--accent); color: #2a1c05; font-size: 12px; border-radius: 3px; padding: 0 6px; margin-right: 8px; }
+body.touch #controls-hint { left: 50%; transform: translateX(-50%); bottom: 170px; }
+body.touch #controls-hint.show { transform: translateX(-50%); }

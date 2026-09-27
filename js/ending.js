@@ -22,7 +22,7 @@ function tween(ms, fn) {
 }
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-function spiritTexture(word) {
+export function spiritTexture(word) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 96;
   const g = c.getContext('2d');

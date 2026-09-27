@@ -9,6 +9,7 @@ import { state, newGame, load, hasSave, save } from './state.js';
 import { input, setupTouch } from './input.js';
 import { ui } from './ui.js';
 import { toggleMute, isMuted, music } from './audio.js';
+import { playIntro, showControlsHint } from './intro.js';
 
 const $ = s => document.querySelector(s);
 
@@ -77,17 +78,9 @@ async function startGame(fresh) {
   $('#title').hidden = true;
   $('#hud').hidden = false;
   await ui.fade(() => { world.enter(state.map === 'field' ? 'field' : 'town'); mode = 'overworld'; });
+  if (fresh) await playIntro(world);
   ui.banner(world.layout.name);
-  if (fresh) {
-    await ui.say('', [
-      '每一個成語，都曾經是守護墨香鎮的「字靈」。',
-      '可是亂字魔把字靈打散了，鎮上的人只記得一半的成語。',
-      `你是字靈守護者的後人，也是一名見習${CLASSES[state.classId].name}，今天第一天接受訓練。`,
-      '向鎮民學回成語，就能喚醒字靈；鎮長會交給你任務。',
-      '戰鬥時答對成語題，字靈才會借你力量施放技能！',
-      '操作：方向鍵／WASD 移動，空白鍵對話，B 開成語冊，Q 看任務。',
-    ]);
-  }
+  showControlsHint();
   input.clearPressed();
   save();
 }
