@@ -43,4 +43,4 @@ HD-2D 風格（參考《歧路旅人》）的成語學習 JRPG 網頁遊戲，�
 - `js/overworld.js`、`js/battle.js`、`js/ui.js`、`js/quiz.js`
 - `CODEX_ART.md`：給 Codex 直接閱讀執行的美術任務（generate2dsprite）
 
-`CODEX_ART.md` 的 27 張透明精靈表已完成（144 影格）：三職業行走／戰鬥、六位 NPC、四種怪物待機、三種怪物行走、四種戰鬥特效和開場／結局用字靈動畫，位於 `assets/sprites/`。啟動伺服器後重新整理遊戲即可載入；素材規格與檢查紀錄見 [素材說明](assets/sprites/README.md)。仍待決定的事項見 `docs/待決定事項.md`。
+`CODEX_ART.md` 四批素材已完成，目前共 36 張透明精靈表（290 影格）：三職業每方向八格行走、四方向呼吸待機、戰鬥待機／六格攻擊、六位 NPC、四種怪物待機、三種怪物行走、十種六格戰鬥特效及開場／結局用字靈動畫，位於 `assets/sprites/`。啟動伺服器後重新整理遊戲即可載入；素材規格與檢查紀錄見 [素材說明](assets/sprites/README.md)。仍待決定的事項見 `docs/待決定事項.md`。
