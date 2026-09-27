@@ -61,7 +61,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0c0b12; col
 .dlg-next { position: absolute; right: 16px; bottom: 6px; font-size: 12px; color: var(--accent); animation: bob 1s infinite; }
 @keyframes bob { 50% { transform: translateY(3px); } }
 
-#choice { position: fixed; right: max(16px, calc(50% - 410px)); bottom: 170px; z-index: 22; background: var(--panel); border: 2px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 240px; max-width: calc(100vw - 32px); }
+#choice { position: fixed; right: max(16px, calc(50% - 410px)); bottom: 170px; z-index: 36; background: var(--panel); border: 2px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 240px; max-width: calc(100vw - 32px); }
 .choice-title { font-size: 15px; color: var(--muted); padding: 4px 8px 8px; border-bottom: 1px solid var(--border-dim); line-height: 1.6; }
 .choice-btn { font: inherit; font-size: 17px; text-align: left; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 8px 12px 8px 26px; cursor: pointer; position: relative; }
 .choice-btn.sel { border-color: var(--border-dim); background: rgba(255, 211, 107, .08); }
