@@ -64,6 +64,7 @@ export async function playEnding(world) {
     for (const n of world.npcs) n.mark.visible = false;
   });
   world.transitioning = true;
+  music.play('ending');
   const eng = world.engine;
   const fountain = new THREE.Vector3(14, 0, 12);
 

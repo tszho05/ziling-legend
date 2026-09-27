@@ -1,4 +1,4 @@
-// 音樂與音效：用 Web Audio 即時合成（暫代，之後可換成正式音樂檔）
+// 音樂：優先播放 assets/music 的音樂檔；音效和備用音樂用 Web Audio 即時合成
 let ctx = null, master, musicBus, sfxBus;
 let muted = false;
 try { muted = localStorage.getItem('idiom-rpg-muted') === '1'; } catch {}
@@ -133,8 +133,44 @@ const TRACKS = {
   },
 };
 
+// 正式音樂檔（CC0，來源見 assets/music/README.md）；進入該場景才載入。
+// 檔案載入失敗時改用上面的合成音樂。
+const FILES = {
+  town: 'assets/music/town.mp3',
+  field: 'assets/music/field.mp3',
+  battle: 'assets/music/battle.mp3',
+  boss: 'assets/music/boss.mp3',
+  ending: 'assets/music/ending.mp3',
+};
+const FILE_VOL = 3; // 經 musicBus（0.16）後約 0.5
+const tracks = {}; // name → { el, gain }
+
+function fileTrack(name) {
+  if (tracks[name]) return tracks[name];
+  const el = new Audio(FILES[name]);
+  el.loop = true;
+  el.preload = 'auto';
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  ctx.createMediaElementSource(el).connect(gain);
+  gain.connect(musicBus);
+  const tr = { el, gain, failed: false };
+  el.addEventListener('error', () => {
+    tr.failed = true;
+    if (music.current === name && !music.timer) music.startSynth(name);
+  });
+  return (tracks[name] = tr);
+}
+
+function fade(gain, to, sec) {
+  const t = ctx.currentTime;
+  gain.gain.cancelScheduledValues(t);
+  gain.gain.setValueAtTime(gain.gain.value, t);
+  gain.gain.linearRampToValueAtTime(to, t + sec);
+}
+
 export const music = {
-  current: null, pending: null, timer: null, step: 0, nextTime: 0,
+  current: null, pending: null, timer: null, step: 0, nextTime: 0, file: null,
   play(name, force = false) {
     if (!force && this.current === name) return;
     this.stop();
@@ -142,6 +178,16 @@ export const music = {
     if (!ensure() || ctx.state !== 'running') return;
     this.pending = null;
     this.current = name;
+    const tr = FILES[name] && fileTrack(name);
+    if (tr && !tr.failed) {
+      this.file = tr;
+      tr.el.currentTime = 0;
+      fade(tr.gain, FILE_VOL, 1.2);
+      tr.el.play().catch(() => {});
+    } else this.startSynth(name);
+  },
+  startSynth(name) {
+    if (!TRACKS[name]) return;
     this.step = 0;
     this.nextTime = ctx.currentTime + 0.1;
     this.timer = setInterval(() => this.schedule(), 25);
@@ -149,6 +195,12 @@ export const music = {
   stop() {
     clearInterval(this.timer);
     this.timer = null;
+    if (this.file) {
+      const { el, gain } = this.file;
+      fade(gain, 0, 0.6);
+      setTimeout(() => { if (this.file?.el !== el) el.pause(); }, 700);
+      this.file = null;
+    }
     this.current = null;
     this.pending = null;
   },
