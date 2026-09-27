@@ -7,12 +7,12 @@ import { sheetEntry } from './world/sprites.js';
 export function makeSpirit(word) {
   const g = new THREE.Group();
   const mats = [];
-  const add = (map, sx, sy, y) => {
+  const add = (map, sx, sy, y, order = 20) => {
     const m = new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, depthTest: false });
     const s = new THREE.Sprite(m);
     s.scale.set(sx, sy, 1);
     s.position.y = y;
-    s.renderOrder = 20;
+    s.renderOrder = order;
     g.add(s);
     mats.push(m);
     return s;
@@ -28,7 +28,8 @@ export function makeSpirit(word) {
       const f = Math.floor((performance.now() / 1000 + offset) * 8) % total;
       tex.offset.set((f % def.cols) / def.cols, 1 - (Math.floor(f / def.cols) + 1) / def.rows);
     };
-    add(spiritTexture(word), 1.6, 0.6, -0.4);
+    // 成語字畫在所有精靈之上，字靈重疊時也不會被遮住
+    add(spiritTexture(word), 1.6, 0.6, -0.4, 21);
   } else {
     add(spiritTexture(word), 2.1, 0.79, 0);
   }
