@@ -28,5 +28,7 @@ export const ASSETS = {
   fx_slash: { path: 'assets/sprites/fx_slash.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },
   fx_fire: { path: 'assets/sprites/fx_fire.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },
   fx_arrow: { path: 'assets/sprites/fx_arrow.png', cols: 2, rows: 2, height: 1.6, kind: 'fx' },
+  // 字靈（開場與結局用，選用：未生成時顯示發光文字）
+  fx_spirit: { path: 'assets/sprites/fx_spirit.png', cols: 2, rows: 2, height: 1.5, kind: 'fx' },
   fx_heal: { path: 'assets/sprites/fx_heal.png', cols: 2, rows: 2, height: 2.4, kind: 'fx' },
 };

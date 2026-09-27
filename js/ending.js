@@ -5,6 +5,7 @@ import { state, cls, save, gainExp, clearSave } from './state.js';
 import { ui } from './ui.js';
 import { sfx, music } from './audio.js';
 import { input } from './input.js';
+import { makeSpirit } from './spirits.js';
 
 // 通關結局：自動回城 → 字靈飛回墨香鎮的過場 → 鎮長致謝 → 成績頁
 
@@ -89,9 +90,7 @@ export async function playEnding(world) {
   // 十個字靈從天上旋轉飛回
   const scene = world.world.scene;
   const spirits = IDIOMS.map((idiom, i) => {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: spiritTexture(idiom.word), transparent: true, depthWrite: false, depthTest: false }));
-    s.scale.set(2.1, 0.79, 1);
-    s.renderOrder = 20;
+    const s = makeSpirit(idiom.word);
     s.userData = { a0: i / IDIOMS.length * Math.PI * 2, start: new THREE.Vector3(fountain.x + Math.cos(i * 1.3) * 12, 14 + i * 0.6, fountain.z - 10 + Math.sin(i) * 4) };
     s.position.copy(s.userData.start);
     scene.add(s);
@@ -131,12 +130,12 @@ export async function playEnding(world) {
     spirits.forEach(s => {
       s.position.y += 0.08;
       s.material.opacity = 1 - t;
-      s.scale.set(2.1 * (1 + t), 0.79 * (1 + t), 1);
+      s.scale.setScalar(1 + t);
     });
     glow.intensity = 6 * (1 - t) + 2;
     for (const r of ring) r.n.sprite.pivot.position.y = 0;
   });
-  spirits.forEach(s => { scene.remove(s); s.material.map.dispose(); s.material.dispose(); });
+  spirits.forEach(s => { scene.remove(s); s.material.dispose(); });
 
   await ui.say('鎮長', [
     '你做到了！十個字靈全部回到墨香鎮了！',

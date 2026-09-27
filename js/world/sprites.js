@@ -42,6 +42,9 @@ export async function preloadAssets(keys = Object.keys(ASSETS), onProgress = () 
   }));
 }
 
+// 取得已載入的正式精靈表（佔位圖回傳 null）
+export function sheetEntry(key) { const e = cache.get(key); return e && !e.placeholder ? e : null; }
+
 export function isPlaceholder(key) { return cache.get(key)?.placeholder ?? true; }
 
 export class Billboard {

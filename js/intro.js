@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { IDIOMS } from './data/idioms.js';
 import { Billboard } from './world/sprites.js';
-import { spiritTexture } from './ending.js';
+import { makeSpirit } from './spirits.js';
 import { cls } from './state.js';
 import { sfx, music } from './audio.js';
 import { input } from './input.js';
@@ -73,9 +73,7 @@ export async function playIntro(world) {
 
   // 十個字靈
   const spirits = IDIOMS.map((idiom, i) => {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: spiritTexture(idiom.word), transparent: true, depthWrite: false, depthTest: false }));
-    s.scale.set(2.1, 0.79, 1);
-    s.renderOrder = 20;
+    const s = makeSpirit(idiom.word);
     s.userData = { a: i / IDIOMS.length * Math.PI * 2, y: 3 + (i % 2) * 0.9 };
     scene.add(s);
     return s;
@@ -208,7 +206,7 @@ export async function playIntro(world) {
     scene.remove(heroGlow);
   } finally {
     // 收尾（略過時也會執行）
-    spirits.forEach(s => { scene.remove(s); s.material.map.dispose(); s.material.dispose(); });
+    spirits.forEach(s => { scene.remove(s); s.material.dispose(); });
     scene.remove(glow);
     setDark(0);
     window.removeEventListener('keydown', onKey, true);
