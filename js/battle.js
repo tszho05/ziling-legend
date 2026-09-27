@@ -125,7 +125,7 @@ export class Battle {
     const c = cls();
     // 英雄有待機與攻擊兩張精靈表，攻擊時切換
     this.hero = {
-      name: c.name, guard: false,
+      name: c.name,
       sprite: new Billboard(`hero_${state.classId}_battle_idle`, { fps: 4 }),
       attackSprite: new Billboard(`hero_${state.classId}_battle_attack`, { fps: 10, shadow: false, loop: false }),
     };
@@ -172,7 +172,6 @@ export class Battle {
         await this.enemyAttack(e);
         if (state.hp <= 0) { result = 'lose'; break; }
       }
-      this.hero.guard = false;
       if (this.hero.guardTurns > 0 && --this.hero.guardTurns === 0) { this.setShield(false); this.log('護盾消失了。'); await sleep(500); }
     }
     if (result === 'win') await this.victory();
@@ -221,7 +220,6 @@ export class Battle {
           : this.cd[s.id] > 0
             ? { id: 'cooldown', label: `⏳ ${s.name}`, hint: `冷卻中（還有 ${this.cd[s.id]} 回合）`, disabled: true }
             : { id: 'skill:' + s.id, label: s.name, hint: `${s.cd ? '字方塊題' : '答題'}後施放・${s.desc}` }),
-        { id: 'defend', label: '防禦', hint: '本回合受到的傷害減半' },
         ...(this.isBoss ? [] : [{ id: 'flee', label: '逃走', hint: '離開戰鬥' }]),
       ];
       box.innerHTML = '';
@@ -262,13 +260,14 @@ export class Battle {
   async heroTurn() {
     for (;;) {
       this.log(`${cls().name}要怎樣做？`);
-      const cmd = await this.command();
-      if (cmd === 'defend') {
-        this.hero.guard = true;
-        this.log('你擺好了防禦架勢。');
-        await sleep(600);
-        return 'defend';
+      // 所有技能都在冷卻或被封印時（頭目戰不能逃走），只能等待這一回合
+      const usable = unlockedSkills().some(s => this.sealed?.id !== s.id && !(this.cd[s.id] > 0));
+      if (!usable && this.isBoss) {
+        this.log('沒有可以使用的技能，只好等待時機……');
+        await sleep(1200);
+        return 'wait';
       }
+      const cmd = await this.command();
       if (cmd === 'flee') {
         if (Math.random() < 0.75) { this.log('成功逃走了！'); await sleep(700); return 'flee'; }
         this.log('逃不掉！');
@@ -405,7 +404,6 @@ export class Battle {
     if (skill.kind === 'heal') {
       const amt = Math.round(maxHp() * skill.power);
       state.hp = Math.min(maxHp(), state.hp + amt);
-      if (skill.id === 'guard') this.hero.guard = true;
       sfx('heal');
       this.spawnFx('heal', this.hero.sprite.pivot.position);
       this.popNumber(this.hero.sprite.pivot.position, this.hero.sprite.height, `+${amt}`, 'heal');
@@ -454,7 +452,7 @@ export class Battle {
     const s = stats();
     const atk = e.phase2 ? e.def.phase2.atk : e.def.atk;
     let d = Math.max(1, Math.round(atk * mult * rand(0.85, 1.15) - s.def * 0.5));
-    if (this.hero.guard || this.hero.guardTurns > 0) d = Math.max(1, Math.round(d / 2));
+    if (this.hero.guardTurns > 0) d = Math.max(1, Math.round(d / 2));
     state.hp -= d;
     sfx('hurt');
     this.popNumber(this.hero.sprite.pivot.position, this.hero.sprite.height, d, 'hurt');
