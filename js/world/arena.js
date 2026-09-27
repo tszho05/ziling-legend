@@ -9,7 +9,7 @@ import { tex } from './textures.js';
 // 戰鬥場景：按郊區分區各有一款
 //   1 草原（晴天小路）  2 森林（密林、光柱、落葉）
 //   3 哥布林營地（黃昏、帳篷、營火）  4 亂字魔祭壇（紫天、石柱、魔法陣、墨霧）
-// 有 assets/backgrounds/battle_<區>.png（Codex 手繪遠景）時，會放在場景後面取代遠山。
+// 有 assets/backgrounds/battle_<區>.jpg（Codex 手繪遠景）時，會放在場景後面取代遠山。
 // 主角站在右邊 x≈3，敵人在左邊 x≈-2.5；鏡頭看向 (0, 1.5, 0.6)。
 
 export const ZONE_KEYS = { 1: 'meadow', 2: 'forest', 3: 'camp', 4: 'altar' };
@@ -26,7 +26,7 @@ const bgCache = {};
 export function loadBackdrop(key) {
   if (!(key in bgCache)) {
     bgCache[key] = new Promise(resolve => {
-      new THREE.TextureLoader().load(`assets/backgrounds/battle_${key}.png`, t => {
+      new THREE.TextureLoader().load(`assets/backgrounds/battle_${key}.jpg`, t => {
         t.colorSpace = THREE.SRGBColorSpace;
         t.anisotropy = 4;
         resolve(t);
