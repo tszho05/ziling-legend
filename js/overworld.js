@@ -254,11 +254,50 @@ export class Overworld {
     const dist = t ? Math.hypot(t.x - p.x, t.z - p.z) : 0;
     g.visible = !!t && dist > 1.4 && !ui.busy && !this.transitioning;
     if (!g.visible) return;
-    const ang = Math.atan2(t.x - p.x, t.z - p.z);
+    // 沿可走的路線指向（避開牆和岩壁），不是直線指向目標
+    const way = this.nextWaypoint(p, t) || t;
+    const ang = Math.atan2(way.x - p.x, way.z - p.z);
     const pulse = 1.15 + Math.sin(performance.now() / 180) * 0.15;
     g.position.set(p.x + Math.sin(ang) * pulse, 0.07, p.z + Math.cos(ang) * pulse);
     g.rotation.y = ang;
     g.children[0].material.opacity = 0.85 + Math.sin(performance.now() / 180) * 0.15;
+  }
+
+  // 用格子 BFS 找出到目標的路線，回傳前方幾格的路點（每 0.25 秒重算一次）
+  nextWaypoint(p, t) {
+    const now = performance.now();
+    if (this.wayCache && now - this.wayCache.at < 250) return this.wayCache.pt;
+    const L = this.layout, W = L.W, D = L.D;
+    const sx = Math.floor(p.x), sz = Math.floor(p.z);
+    const tx = Math.min(W - 1, Math.max(0, Math.floor(t.x))), tz = Math.min(D - 1, Math.max(0, Math.floor(t.z)));
+    const idx = (x, z) => z * W + x;
+    const prev = new Int32Array(W * D).fill(-2);
+    const q = [idx(sx, sz)];
+    prev[q[0]] = -1;
+    let found = -1;
+    for (let h = 0; h < q.length; h++) {
+      const c = q[h], cx = c % W, cz = (c / W) | 0;
+      // 目標格本身可能是阻擋物（例如 NPC、頭目），走到旁邊就算到達
+      if (Math.abs(cx - tx) + Math.abs(cz - tz) <= 1) { found = c; break; }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, nz = cz + dz;
+        if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue;
+        const n = idx(nx, nz);
+        if (prev[n] !== -2 || L.solid[nz][nx]) continue;
+        prev[n] = c;
+        q.push(n);
+      }
+    }
+    let pt = null;
+    if (found >= 0) {
+      const path = [];
+      for (let c = found; c !== -1; c = prev[c]) path.push(c);
+      path.reverse();
+      const c = path[Math.min(3, path.length - 1)];
+      pt = path.length > 1 ? { x: (c % W) + 0.5, z: ((c / W) | 0) + 0.5 } : null;
+    }
+    this.wayCache = { at: now, pt };
+    return pt;
   }
 
   // 玩家被房屋或樹擋住時，把遮擋物變半透明

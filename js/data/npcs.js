@@ -47,8 +47,8 @@ export const QUESTS = {
   },
   q_wolf3: {
     title: '捕獵野狼', giver: 'chief',
-    desc: '野狼在森林裏嚇壞了送信的郵差，把信件叼走了。到森林打倒 3 隻野狼。',
-    goal: { type: 'defeat', target: 'wolf', count: 3 }, reward: { exp: 30 },
+    desc: '野狼在森林裏嚇壞了送信的郵差，把信件叼走了。到森林打倒 2 隻野狼。',
+    goal: { type: 'defeat', target: 'wolf', count: 2 }, reward: { exp: 30 },
   },
   q_goblin: {
     title: '哥布林的威脅', giver: 'chief',
