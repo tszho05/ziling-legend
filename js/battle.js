@@ -260,6 +260,13 @@ export class Battle {
   async heroTurn() {
     for (;;) {
       this.log(`${cls().name}要怎樣做？`);
+      // 所有技能都在冷卻或被封印時（頭目戰不能逃走），只能等待這一回合
+      const usable = unlockedSkills().some(s => this.sealed?.id !== s.id && !(this.cd[s.id] > 0));
+      if (!usable && this.isBoss) {
+        this.log('沒有可以使用的技能，只好等待時機……');
+        await sleep(1200);
+        return 'wait';
+      }
       const cmd = await this.command();
       if (cmd === 'flee') {
         if (Math.random() < 0.75) { this.log('成功逃走了！'); await sleep(700); return 'flee'; }
