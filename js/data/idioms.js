@@ -49,7 +49,7 @@ export const IDIOMS = [
   {
     id: 'baiganjiaoji', word: '百感交集',
     meaning: '各種感受交織在一起，心情十分複雜。',
-    example: '畢業典禮上，想起六年的校園生活，同學們都＿＿＿＿。',
+    example: '畢業典禮上，同學們想起六年的校園生活，都感到＿＿＿＿。',
   },
 ];
 
