@@ -180,7 +180,7 @@ export const ui = {
     for (let i = tiles.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; }
     const prompt = q.type === 'meaning'
       ? `用字方塊拼出意思是這樣的成語：\n「${q.idiom.meaning}」`
-      : `用字方塊拼出最適合填在橫線上的成語：\n${q.idiom.example}`;
+      : `用字方塊拼出最適合填在橫線上的成語：\n${q.sentence}`;
     return new Promise(resolve => {
       box.innerHTML = `<div class="quiz-title">${esc(title)}</div><div class="quiz-prompt">${esc(prompt)}</div>
         <div class="tile-slots">${word.map((_, i) => `<button class="tile-slot" data-i="${i}"></button>`).join('')}</div>
