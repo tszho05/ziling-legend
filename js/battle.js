@@ -97,6 +97,7 @@ export class Battle {
   update(dt) {
     for (const s of this.sprites) s.update(dt);
     this.scene?.userData.animate?.(dt, performance.now() / 1000);
+    this.vortex?.(performance.now() / 1000);
     this.engine.lookAt(new THREE.Vector3(0, 1.5, 0.6));
   }
 
@@ -109,6 +110,8 @@ export class Battle {
     this.sprites = [];
 
     this.isBoss = party.some(id => MONSTERS[id].boss);
+    this.sealed = null;
+    this.vortex = null;
     music.play(this.isBoss ? 'boss' : 'battle');
 
     const c = cls();
@@ -186,7 +189,9 @@ export class Battle {
     return new Promise(resolve => {
       const box = $('#battle-cmd');
       const items = [
-        ...cls().skills.map(s => ({ id: 'skill:' + s.id, label: s.name, hint: `答題後施放・${s.desc}` })),
+        ...cls().skills.map(s => this.sealed?.id === s.id
+          ? { id: 'sealed', label: `🔒 ${s.name}`, hint: `被亂字魔封印（還有 ${this.sealed.turns} 回合）`, disabled: true }
+          : { id: 'skill:' + s.id, label: s.name, hint: `答題後施放・${s.desc}` }),
         { id: 'defend', label: '防禦', hint: '本回合受到的傷害減半' },
         ...(this.isBoss ? [] : [{ id: 'flee', label: '逃走', hint: '離開戰鬥' }]),
       ];
@@ -196,7 +201,8 @@ export class Battle {
         const b = document.createElement('button');
         b.className = 'cmd-btn';
         b.innerHTML = `${it.label}<small>${it.hint}</small>`;
-        b.onclick = () => done(i);
+        if (it.disabled) b.classList.add('disabled');
+        b.onclick = () => { if (!it.disabled) done(i); };
         b.onmouseenter = () => focus(i);
         box.appendChild(b);
         return b;
@@ -207,13 +213,13 @@ export class Battle {
         const k = e.code;
         if (k === 'ArrowDown' || k === 'KeyS') focus((sel + 1) % btns.length);
         else if (k === 'ArrowUp' || k === 'KeyW') focus((sel + btns.length - 1) % btns.length);
-        else if (['Space', 'Enter', 'KeyZ'].includes(k)) done(sel);
+        else if (['Space', 'Enter', 'KeyZ'].includes(k)) { if (!items[sel].disabled) done(sel); }
         else return;
         e.preventDefault();
       };
       const done = i => { sfx('click'); window.removeEventListener('keydown', onKey); box.innerHTML = ''; resolve(items[i].id); };
       window.addEventListener('keydown', onKey);
-      focus(0);
+      focus(items.findIndex(it => !it.disabled));
     });
   }
 
@@ -225,6 +231,7 @@ export class Battle {
   }
 
   async heroTurn() {
+    if (this.sealed && --this.sealed.turns <= 0) { this.log(`「${cls().skills.find(s => s.id === this.sealed.id).name}」的封印解除了！`); this.sealed = null; await sleep(700); }
     for (;;) {
       this.log(`${cls().name}要怎樣做？`);
       const cmd = await this.command();
@@ -291,7 +298,9 @@ export class Battle {
     target.hp -= dmg;
     this.popNumber(target.sprite.pivot.position, target.sprite.height, dmg, crit ? 'crit' : '');
     await this.flash(target.sprite);
-    if (target.hp <= 0) {
+    if (target.hp <= 0 && target.def.phase2 && !target.phase2) {
+      await this.transform(target);
+    } else if (target.hp <= 0) {
       target.alive = false;
       sfx('defeat');
       await tween(400, t => { target.sprite.mesh.material.opacity = 1 - t; target.sprite.mesh.material.transparent = true; target.sprite.mesh.scale.y = 1 - t * 0.3; });
@@ -334,18 +343,44 @@ export class Battle {
   }
 
   async enemyAttack(e) {
+    // 頭目每隔幾回合使出重擊（前一回合先蓄力）
+    e.turns = (e.turns || 0) + 1;
+    // 暴走形態的節奏：封印＋攻擊 → 墨水連擊 → 蓄力 → 重擊
+    const every = e.phase2 ? e.def.phase2.heavyEvery : e.def.heavyEvery;
+    const heavy = every && e.turns % every === 0;
+    const charging = !heavy && every && (e.turns + 1) % every === 0;
+    if (charging) { this.log(`${e.name}正在蓄力……`); await sleep(900); return; }
+    if (heavy) { this.log(`${e.name}的重擊！`); await this.strike(e, 1.8); return; }
+    if (e.phase2) {
+      // 暴走形態：沒有封印時先封印一招，否則墨水連擊（攻擊兩次）
+      if (!this.sealed && e.turns % every === 1) {
+        const skills = cls().skills;
+        const s = skills[(Math.random() * skills.length) | 0];
+        this.sealed = { id: s.id, turns: 2 };
+        this.log(`${e.name}用亂碼封印了「${s.name}」！（2 回合）`);
+        sfx('fail');
+        await this.flash(this.hero.sprite);
+        await sleep(700);
+        await this.strike(e, 1);
+        return;
+      }
+      this.log(`${e.name}的墨水連擊！`);
+      await this.strike(e, 0.8);
+      if (state.hp > 0) await this.strike(e, 0.8);
+      return;
+    }
+    this.log(`${e.name}的攻擊！`);
+    await this.strike(e, 1);
+  }
+
+  async strike(e, mult) {
     const sp = e.sprite;
     const from = e.home.clone();
     const to = this.hero.home.clone().add(new THREE.Vector3(-1.3, 0, 0));
-    // 頭目每隔幾回合使出重擊
-    e.turns = (e.turns || 0) + 1;
-    const heavy = e.def.heavyEvery && e.turns % e.def.heavyEvery === 0;
-    if (e.def.heavyEvery && (e.turns + 1) % e.def.heavyEvery === 0) this.log(`${e.name}正在蓄力……`);
-    else this.log(heavy ? `${e.name}的重擊！` : `${e.name}的攻擊！`);
-    if (!heavy && e.def.heavyEvery && (e.turns + 1) % e.def.heavyEvery === 0) { await sleep(900); return; }
     await tween(220, t => sp.pivot.position.lerpVectors(from, to, t));
     const s = stats();
-    let d = Math.max(1, Math.round(e.def.atk * (heavy ? 1.8 : 1) * rand(0.85, 1.15) - s.def * 0.5));
+    const atk = e.phase2 ? e.def.phase2.atk : e.def.atk;
+    let d = Math.max(1, Math.round(atk * mult * rand(0.85, 1.15) - s.def * 0.5));
     if (this.hero.guard) d = Math.max(1, Math.round(d / 2));
     state.hp -= d;
     sfx('hurt');
@@ -354,6 +389,70 @@ export class Battle {
     this.renderStatus();
     await tween(220, t => sp.pivot.position.lerpVectors(to, from, t));
     await sleep(250);
+  }
+
+  // 亂字魔復活成暴走形態：變紅紫、變大、捲起墨水漩渦與亂碼，血量回滿
+  async transform(e) {
+    e.hp = 0;
+    this.renderStatus();
+    this.log(`${e.name}倒下了……？`);
+    await sleep(1000);
+    sfx('lose');
+    this.log('墨水重新聚合起來——亂字魔進入暴走形態！');
+    const sp = e.sprite;
+    const m = sp.mesh.material;
+    // 墨水漩渦：黑色墨點與紫色亂碼繞着頭目旋轉
+    const group = new THREE.Group();
+    const blobTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 32;
+      const g = c.getContext('2d');
+      const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, 'rgba(20,6,30,0.95)'); gr.addColorStop(1, 'rgba(20,6,30,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+      return new THREE.CanvasTexture(c);
+    })();
+    const parts = [];
+    const chars = '亂字魔墨心目口冷言感';
+    for (let i = 0; i < 26; i++) {
+      let mat;
+      if (i % 3 === 0) {
+        const c = document.createElement('canvas'); c.width = c.height = 64;
+        const g = c.getContext('2d');
+        g.fillStyle = '#e0b0ff'; g.font = 'bold 44px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(chars[i % chars.length], 32, 34);
+        mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false });
+      } else mat = new THREE.SpriteMaterial({ map: blobTex, transparent: true, depthWrite: false });
+      const s = new THREE.Sprite(mat);
+      s.scale.setScalar(i % 3 === 0 ? 0.5 : 0.35 + (i % 4) * 0.08);
+      s.userData = { a: i / 26 * Math.PI * 2, r: 1.2 + (i % 5) * 0.18, y: 0.3 + (i % 7) * 0.4, sp: 1.2 + (i % 3) * 0.4 };
+      group.add(s);
+      parts.push(s);
+    }
+    group.position.copy(e.home);
+    this.scene.add(group);
+    this.vortex = t => parts.forEach(s => {
+      const u = s.userData, a = u.a + t * u.sp;
+      s.position.set(Math.cos(a) * u.r, u.y + Math.sin(t * 2 + u.a) * 0.2, Math.sin(a) * u.r * 0.6);
+    });
+    // 閃爍、變色、放大、血量回滿
+    await tween(1200, t => {
+      const k = Math.sin(t * Math.PI * 8) > 0;
+      m.emissiveIntensity = k ? 2 : 0.3;
+      sp.pivot.scale.setScalar(1 + 0.3 * t);
+      e.hp = Math.round(e.maxHp * t);
+      this.renderStatus();
+    });
+    m.color.set(0xff7a9a);
+    m.emissive.set(0x7a1040);
+    m.emissiveIntensity = 0.55;
+    e.hp = e.maxHp;
+    e.phase2 = true;
+    e.turns = 0;
+    e.name = e.def.phase2.name;
+    this.renderStatus();
+    sfx('levelup');
+    this.log(`${e.name}出現了！牠會連續攻擊，還會封印你的技能！`);
+    await sleep(1400);
   }
 
   async victory() {

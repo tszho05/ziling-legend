@@ -215,3 +215,6 @@ body.cutscene::before, body.cutscene::after { height: 9vh; }
 #loading-bar { width: 0; height: 100%; background: linear-gradient(90deg, #d9a531, #ffe38a); transition: width .2s; }
 #loading-msg { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 520px; }
 #loading-msg b { color: var(--accent); }
+
+.cmd-btn.disabled { opacity: .5; cursor: not-allowed; border-color: #6a3a8a; }
+.cmd-btn.disabled small { color: #d8a8ff; }
