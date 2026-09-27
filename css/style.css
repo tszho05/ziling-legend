@@ -163,7 +163,7 @@ body.touch #touch-ui { display: block; }
 body.in-battle #touch-ui, body.ui-open #touch-ui { display: none; }
 #rotate-hint { display: none; }
 @media (orientation: portrait) {
-  body.touch #rotate-hint { display: block; position: fixed; left: 50%; top: 60px; transform: translateX(-50%); z-index: 42; background: var(--panel); border: 2px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 15px; white-space: nowrap; pointer-events: none; }
+  body.touch #rotate-hint { display: block; position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 42; background: var(--panel); border: 2px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 15px; white-space: nowrap; pointer-events: none; }
 }
 
 #hud-next { max-width: 340px; background: rgba(40, 30, 10, .85); border: 2px solid var(--accent); border-radius: 6px; padding: 8px 12px; font-size: 16px; line-height: 1.5; color: #fff6dc; }
