@@ -29,7 +29,7 @@ export const NPCS = [
   {
     id: 'chief', name: '鎮長', sprite: 'npc_chief', x: 15.5, z: 13.5,
     greet: ['守護者，你終於來了。我是墨香鎮的鎮長。', '只有喚醒全部字靈，才能打敗亂字魔。鎮上需要你的幫忙。'],
-    quests: ['q_learn5', 'q_slime3', 'q_goblin', 'q_learnall', 'q_boss'],
+    quests: ['q_learn5', 'q_slime3', 'q_wolf3', 'q_goblin', 'q_learnall', 'q_boss'],
   },
 ];
 
@@ -44,6 +44,11 @@ export const QUESTS = {
     title: '清除史萊姆', giver: 'chief',
     desc: '亂字魔的墨水變成了史萊姆。到郊區打倒 3 隻。',
     goal: { type: 'defeat', target: 'slime', count: 3 }, reward: { exp: 25 },
+  },
+  q_wolf3: {
+    title: '捕獵野狼', giver: 'chief',
+    desc: '野狼在森林裏嚇壞了送信的郵差，把信件叼走了。到森林打倒 3 隻野狼。',
+    goal: { type: 'defeat', target: 'wolf', count: 3 }, reward: { exp: 30 },
   },
   q_goblin: {
     title: '哥布林的威脅', giver: 'chief',
