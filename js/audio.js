@@ -16,14 +16,17 @@ function ensure() {
   return ctx;
 }
 
-// 瀏覽器要求用戶先互動才可發聲
+// 瀏覽器要求用戶先互動才可發聲。iPad／iPhone 的 Safari 更嚴格：
+// 音樂的 <audio> 必須在點擊當下播放過一次才算解鎖，之後換歌才可以自動播放。
 const unlock = () => {
   if (!ensure()) return;
+  // iOS 17+：當作「播放媒體」，靜音鍵開着也有聲（和影片一樣）
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  primePlayers();
   const go = () => { if (music.pending) music.play(music.pending, true); };
-  ctx.state === 'suspended' ? ctx.resume().then(go) : go();
+  ctx.state !== 'running' ? ctx.resume().then(go, () => {}) : go();
 };
-window.addEventListener('pointerdown', unlock);
-window.addEventListener('keydown', unlock);
+for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, true);
 
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -143,23 +146,39 @@ const FILES = {
   ending: 'assets/music/ending.mp3',
 };
 const FILE_VOL = 3; // 經 musicBus（0.16）後約 0.5
-const tracks = {}; // name → { el, gain }
+const failed = new Set(); // 載入失敗的曲目 → 改用合成音樂
 
-function fileTrack(name) {
-  if (tracks[name]) return tracks[name];
-  const el = new Audio(FILES[name]);
-  el.loop = true;
-  el.preload = 'auto';
-  const gain = ctx.createGain();
-  gain.gain.value = 0;
-  ctx.createMediaElementSource(el).connect(gain);
-  gain.connect(musicBus);
-  const tr = { el, gain, failed: false };
-  el.addEventListener('error', () => {
-    tr.failed = true;
-    if (music.current === name && !music.timer) music.startSynth(name);
-  });
-  return (tracks[name] = tr);
+// 兩個輪流使用的播放器（換歌時一個淡出、一個淡入）
+const players = [];
+function initPlayers() {
+  if (players.length) return;
+  for (let i = 0; i < 2; i++) {
+    const el = new Audio();
+    el.loop = true;
+    el.preload = 'auto';
+    el.setAttribute('playsinline', '');
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    ctx.createMediaElementSource(el).connect(gain);
+    gain.connect(musicBus);
+    const p = { el, gain, name: null, primed: false };
+    el.addEventListener('error', () => {
+      if (!p.name) return;
+      failed.add(p.name);
+      if (music.file === p && !music.timer) music.startSynth(p.name);
+    });
+    players.push(p);
+  }
+}
+// 在點擊當下各播放一下（音量為 0），令 iOS 解鎖這兩個播放器
+function primePlayers() {
+  initPlayers();
+  for (const p of players) {
+    if (p.primed) continue;
+    p.primed = true;
+    if (!p.el.src) { p.name = 'town'; p.el.src = FILES.town; }
+    p.el.play().then(() => { if (music.file !== p) p.el.pause(); }, () => { p.primed = false; });
+  }
 }
 
 function fade(gain, to, sec) {
@@ -170,7 +189,7 @@ function fade(gain, to, sec) {
 }
 
 export const music = {
-  current: null, pending: null, timer: null, step: 0, nextTime: 0, file: null,
+  current: null, pending: null, timer: null, step: 0, nextTime: 0, file: null, last: null,
   play(name, force = false) {
     if (!force && this.current === name) return;
     this.stop();
@@ -178,12 +197,14 @@ export const music = {
     if (!ensure() || ctx.state !== 'running') return;
     this.pending = null;
     this.current = name;
-    const tr = FILES[name] && fileTrack(name);
-    if (tr && !tr.failed) {
-      this.file = tr;
-      tr.el.currentTime = 0;
-      fade(tr.gain, FILE_VOL, 1.2);
-      tr.el.play().catch(() => {});
+    if (FILES[name] && !failed.has(name)) {
+      initPlayers();
+      const p = players.find(q => q !== this.last) || players[0];
+      this.file = p;
+      if (p.name !== name) { p.name = name; p.el.src = FILES[name]; }
+      p.el.currentTime = 0;
+      fade(p.gain, FILE_VOL, 1.2);
+      p.el.play().catch(() => {});
     } else this.startSynth(name);
   },
   startSynth(name) {
@@ -196,9 +217,10 @@ export const music = {
     clearInterval(this.timer);
     this.timer = null;
     if (this.file) {
-      const { el, gain } = this.file;
-      fade(gain, 0, 0.6);
-      setTimeout(() => { if (this.file?.el !== el) el.pause(); }, 700);
+      const p = this.file;
+      fade(p.gain, 0, 0.6);
+      setTimeout(() => { if (this.file !== p) p.el.pause(); }, 700);
+      this.last = p;
       this.file = null;
     }
     this.current = null;
