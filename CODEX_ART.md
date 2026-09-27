@@ -35,7 +35,7 @@ friendly look suitable for 10-year-old children, no text, no watermark
 - NPC：**2×2** 待機循環（輕微呼吸／眨眼），面向鏡頭。
 - 特效：**2×2**，四格是由開始到消失的過程。
 
-## 4. 素材清單（共 27 張）
+## 4. 素材清單（共 27 張；另見第 8 節第四批 19 張）
 
 ### 英雄（3 個職業，每個 3 張）
 
@@ -106,6 +106,8 @@ friendly look suitable for 10-year-old children, no text, no watermark
 
 > 2026-09-27：第二批 3 張怪物行走表已完成，現共 26 張、140 影格。史萊姆、野狼、哥布林皆為面向右的 2×2 循環，已核對待機外觀與比例、逐格透明邊緣和腳底對齊。
 
+> 2026-09-27：第三批 `fx_spirit.png` 已完成，現共 27 張、144 影格。字靈為正面 2×2 拍翼浮動循環，空白書卷、透明翅膀與金色柔光；每格 256×256、主體約佔格高 70%，已檢查透明邊緣、完整切格和瀏覽器載入。
+
 1. ✅ `hero_swordsman_walk.png` 已完成並放進遊戲（腳底對齊、大小正確）；之後的角色都以它的風格、比例為準。
 2. 其餘英雄 → NPC → 怪物 → 頭目 → 特效。
 3. 每張完成後做 QC：格數正確、每格同大、主體沒有碰到格邊、腳底對齊、背景完全透明（沒有洋紅殘邊）。
@@ -120,3 +122,59 @@ friendly look suitable for 10-year-old children, no text, no watermark
 ## 7. 大小微調
 
 如角色在遊戲中太大或太小、或浮在半空，改 `js/data/assets.js` 對應項目的 `height`（整格高度，單位是地磚）或 `feet`（腳底離格子底邊的比例），不要重新生成圖。
+
+
+## 8. 第四批：更多格數與精緻特效（19 張）
+
+遊戲會按圖片尺寸自動判斷格數（每格 256 像素），所以直接用同一個檔名覆蓋舊圖即可，不用改程式。未生成的圖會沿用舊圖或通用特效。格序一律是「由左至右、由上至下」。
+
+### 行走表重畫：每個方向 8 格（3 張，覆蓋舊檔）
+
+| 路徑 | 格數 | 說明 |
+|---|---|---|
+| assets/sprites/hero_swordsman_walk.png | 4 列 × 8 欄（2048×1024） | 列序：下、左、右、上；每列 8 格是一個完整、流暢的走路循環 |
+| assets/sprites/hero_mage_walk.png | 同上 | 同上 |
+| assets/sprites/hero_archer_walk.png | 同上 | 同上 |
+
+- 做法：每個方向先用 generate2dsprite 生成一張 2×4（8 格）走路表並做 QC，再按下、左、右、上合成一張 4 列 × 8 欄。
+- 外觀、大小、腳底位置必須和現有行走表完全一致（用現有行走表作參考圖）。
+
+### 待機呼吸（3 張，新增）
+
+| 路徑 | 格數 | 說明 |
+|---|---|---|
+| assets/sprites/hero_swordsman_idle.png | 4 列 × 4 欄（1024×1024） | 列序：下、左、右、上；每列 4 格是站着輕輕呼吸（肩膀和身體微微起伏，披風輕擺）的循環 |
+| assets/sprites/hero_mage_idle.png | 同上 | 同上（帽子和長袍輕擺） |
+| assets/sprites/hero_archer_idle.png | 同上 | 同上（斗篷輕擺） |
+
+- 腳底不可移動；動作幅度要小，避免看起來在跳。
+
+### 攻擊表重畫：6 格（3 張，覆蓋舊檔）
+
+| 路徑 | 格數 | 說明 |
+|---|---|---|
+| assets/sprites/hero_swordsman_battle_attack.png | 2 列 × 3 欄（768×512） | 側面面向左：1 預備、2 蓄力、3 出招、4 命中瞬間、5 收招、6 回到架勢 |
+| assets/sprites/hero_mage_battle_attack.png | 同上 | 同上（揮杖施法） |
+| assets/sprites/hero_archer_battle_attack.png | 同上 | 同上（拉弓、放箭、收弓） |
+
+- 只畫身體和武器，不要刀光、火焰、箭矢；scale_strategy = preserve、align = feet，身體大小和戰鬥待機表一致。
+- 三招技能共用這一張攻擊表。
+
+### 特效：6 格（10 張，其中 4 張覆蓋舊檔、6 張新增）
+
+全部 2 列 × 3 欄（768×512），透明背景，六格是「出現 → 最強 → 消散」的過程，末格保留少量殘光。
+
+| 路徑 | 用在 | 描述 |
+|---|---|---|
+| assets/sprites/fx_slash.png | 劍士「重斬」 | 白色帶金邊的弧形刀光，重畫為 6 格 |
+| assets/sprites/fx_fire.png | 法師「火球術」、火球飛行 | 橙紅火焰爆炸，重畫為 6 格 |
+| assets/sprites/fx_arrow.png | 弓手「穿雲箭」、箭矢飛行 | 帶金色光尾的箭矢，重畫為 6 格 |
+| assets/sprites/fx_heal.png | 回血效果 | 綠色和金色光點向上升起，重畫為 6 格 |
+| assets/sprites/fx_shield.png | 劍士「盾擊」 | 藍白色盾形衝擊波，撞擊時爆出碎光 |
+| assets/sprites/fx_justice.png | 劍士「正義制裁」 | 金色光柱由上而下斬落，四周有光芒十字 |
+| assets/sprites/fx_ice.png | 法師「冰晶護盾」 | 淺藍冰晶從地面突出再碎裂，帶雪花閃光 |
+| assets/sprites/fx_spark.png | 法師「生命火花」 | 金綠色火花漩渦爆開，帶小葉子形光點 |
+| assets/sprites/fx_roll.png | 弓手「翻滾射擊」 | 一陣白色旋風氣流加上一支快箭的光痕 |
+| assets/sprites/fx_forest.png | 弓手「森林之箭」 | 綠色光箭命中時爆出樹葉和光點 |
+
+- 特效主體置中，最亮的一格約佔格子 80%，不可碰邊。

@@ -3,6 +3,8 @@
 // height：整格在遊戲世界中的高度（1 = 一格地磚）；feet：腳底離格子底邊的比例（預設 0.04）。
 const hero = (cls) => ({
   [`hero_${cls}_walk`]: { path: `assets/sprites/hero_${cls}_walk.png`, cols: 4, rows: 4, height: 2.2, kind: 'walk' },
+  // 四方向待機呼吸（列序同行走表；未生成時站着不動）
+  [`hero_${cls}_idle`]: { path: `assets/sprites/hero_${cls}_idle.png`, cols: 4, rows: 4, height: 2.2, kind: 'walk' },
   [`hero_${cls}_battle_idle`]: { path: `assets/sprites/hero_${cls}_battle_idle.png`, cols: 2, rows: 2, height: 2.4, kind: 'idle' },
   [`hero_${cls}_battle_attack`]: { path: `assets/sprites/hero_${cls}_battle_attack.png`, cols: 2, rows: 2, height: 2.4, kind: 'idle' },
 });
@@ -24,11 +26,18 @@ export const ASSETS = {
   monster_slime_walk: { path: 'assets/sprites/monster_slime_walk.png', cols: 2, rows: 2, height: 1.1, kind: 'idle' },
   monster_wolf_walk: { path: 'assets/sprites/monster_wolf_walk.png', cols: 2, rows: 2, height: 1.4, kind: 'idle' },
   monster_goblin_walk: { path: 'assets/sprites/monster_goblin_walk.png', cols: 2, rows: 2, height: 1.6, kind: 'idle' },
-  monster_boss: { path: 'assets/sprites/monster_boss.png', cols: 2, rows: 2, height: 2.8, kind: 'idle' },
+  monster_boss: { path: 'assets/sprites/monster_boss.png', cols: 2, rows: 2, height: 2.8, kind: 'idle', cell: 384 },
   fx_slash: { path: 'assets/sprites/fx_slash.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },
   fx_fire: { path: 'assets/sprites/fx_fire.png', cols: 2, rows: 2, height: 2.2, kind: 'fx' },
   fx_arrow: { path: 'assets/sprites/fx_arrow.png', cols: 2, rows: 2, height: 1.6, kind: 'fx' },
   // 字靈（開場與結局用，選用：未生成時顯示發光文字）
   fx_spirit: { path: 'assets/sprites/fx_spirit.png', cols: 2, rows: 2, height: 1.5, kind: 'fx' },
   fx_heal: { path: 'assets/sprites/fx_heal.png', cols: 2, rows: 2, height: 2.4, kind: 'fx' },
+  // 每招技能的專屬特效（未生成時沿用刀光／火焰／箭矢）
+  fx_shield: { path: 'assets/sprites/fx_shield.png', cols: 3, rows: 2, height: 2.4, kind: 'fx', fallback: 'fx_slash' },
+  fx_justice: { path: 'assets/sprites/fx_justice.png', cols: 3, rows: 2, height: 2.8, kind: 'fx', fallback: 'fx_slash' },
+  fx_ice: { path: 'assets/sprites/fx_ice.png', cols: 3, rows: 2, height: 2.4, kind: 'fx', fallback: 'fx_fire' },
+  fx_spark: { path: 'assets/sprites/fx_spark.png', cols: 3, rows: 2, height: 2.6, kind: 'fx', fallback: 'fx_fire' },
+  fx_roll: { path: 'assets/sprites/fx_roll.png', cols: 3, rows: 2, height: 2.0, kind: 'fx', fallback: 'fx_arrow' },
+  fx_forest: { path: 'assets/sprites/fx_forest.png', cols: 3, rows: 2, height: 2.2, kind: 'fx', fallback: 'fx_arrow' },
 };

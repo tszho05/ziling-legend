@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { Billboard } from './world/sprites.js';
+import { Billboard, sheetEntry } from './world/sprites.js';
+import { ASSETS } from './data/assets.js';
 import { makeTree, makeBush } from './world/props.js';
 import { makeRock, makeStump, makeMushrooms, makeFence } from './world/decor.js';
 import { addSky, addClouds, addHills, addTufts, hash } from './world/scenery.js';
@@ -98,7 +99,13 @@ export class Battle {
     for (const s of this.sprites) s.update(dt);
     this.scene?.userData.animate?.(dt, performance.now() / 1000);
     this.vortex?.(performance.now() / 1000);
-    this.engine.lookAt(new THREE.Vector3(0, 1.5, 0.6));
+    const cam = this.camFocus ? this.camFocus.clone() : new THREE.Vector3(0, 1.5, 0.6);
+    if (this.shake > 0) {
+      cam.x += (Math.random() - 0.5) * this.shake;
+      cam.y += (Math.random() - 0.5) * this.shake;
+      this.shake = Math.max(0, this.shake - dt * 1.6);
+    }
+    this.engine.lookAt(cam, this.shake > 0);
   }
 
   // 回傳 'win' | 'lose' | 'flee'
@@ -174,6 +181,9 @@ export class Battle {
     document.body.classList.remove('in-battle');
     $('#battle-cmd').innerHTML = '';
     this.setShield(false);
+    this.camFocus = null;
+    this.shake = 0;
+    document.querySelector('#battle-dim')?.classList.remove('on');
     for (const s of this.sprites) s.dispose();
     this.engine.distance = 19;
     save();
@@ -291,6 +301,22 @@ export class Battle {
     if (attacking) this.hero.attackSprite.t = 0;
   }
 
+  // 箭矢或火球由英雄飛向目標
+  async projectile(fx, target) {
+    const kind = fx === 'fire' || fx === 'ice' || fx === 'spark' ? 'fire' : 'arrow';
+    const p = new Billboard(`fx_${kind}`, { fps: 12, shadow: false, castShadow: false, glow: 1.2, height: kind === 'fire' ? 0.9 : 0.8 });
+    const from = this.hero.home.clone().add(new THREE.Vector3(-0.6, 0.9, 0));
+    const to = target.sprite.pivot.position.clone().add(new THREE.Vector3(0.3, target.sprite.height * 0.35, 0.1));
+    p.pivot.position.copy(from);
+    if (kind === 'arrow') p.setFlip(true);
+    this.scene.add(p.pivot);
+    this.sprites.push(p);
+    await tween(260, t => { p.pivot.position.lerpVectors(from, to, t); p.pivot.position.y += Math.sin(t * Math.PI) * 0.5; });
+    this.scene.remove(p.pivot);
+    this.sprites = this.sprites.filter(s => s !== p);
+    p.dispose();
+  }
+
   async heroStrike(target, power, fx, { crit = false } = {}) {
     const hs = this.hero.sprite;
     const from = this.hero.home.clone();
@@ -299,6 +325,7 @@ export class Battle {
     const to = melee ? target.sprite.pivot.position.clone().add(new THREE.Vector3(1.4, 0, 0)) : from.clone().add(new THREE.Vector3(-0.4, 0, 0));
     this.pose(true);
     await tween(220, t => hs.pivot.position.lerpVectors(from, to, t));
+    if (!melee) await this.projectile(fx, target);
     await this.hit(target, this.damageTo(target, power, crit), fx, crit);
     await tween(220, t => hs.pivot.position.lerpVectors(to, from, t));
     this.pose(false);
@@ -306,7 +333,11 @@ export class Battle {
 
   async hit(target, dmg, fx, crit = false) {
     this.spawnFx(fx, target.sprite.pivot.position);
-    sfx(fx === 'fire' ? 'fire' : fx === 'arrow' ? 'arrow' : 'hit');
+    this.shake = Math.max(this.shake || 0, crit ? 0.45 : 0.28);
+    await sleep(70); // 命中停格
+    const home = target.home.clone();
+    tween(260, t => { target.sprite.pivot.position.x = home.x - Math.sin(t * Math.PI) * 0.45; });
+    sfx(['fire', 'ice', 'spark'].includes(fx) ? 'fire' : ['arrow', 'roll', 'forest'].includes(fx) ? 'arrow' : 'hit');
     target.hp -= dmg;
     this.popNumber(target.sprite.pivot.position, target.sprite.height, dmg, crit ? 'crit' : '');
     await this.flash(target.sprite);
@@ -324,12 +355,15 @@ export class Battle {
 
   async castSkill(skill, target) {
     this.log(`「${skill.name}」！`);
+    const big = skill.cd >= 3;
+    if (big) await this.cinematic(true);
     const alive = () => this.enemies.filter(e => e.alive);
     if (skill.kind === 'damage') {
       await this.heroStrike(target, skill.power, skill.fx);
     } else if (skill.kind === 'damage_all') {
       this.pose(true);
       await tween(250, t => { this.hero.sprite.pivot.position.y = Math.sin(t * Math.PI) * 0.4; });
+      await Promise.all(alive().map(e => this.projectile(skill.fx, e)));
       await Promise.all(alive().map(e => this.hit(e, this.damageTo(e, skill.power), skill.fx)));
       this.pose(false);
     } else if (skill.kind === 'multi_hit') {
@@ -338,6 +372,7 @@ export class Battle {
         const a = alive();
         if (!a.length) break;
         const t = a[(Math.random() * a.length) | 0];
+        await this.projectile(skill.fx, t);
         await this.hit(t, this.damageTo(t, skill.power), skill.fx);
       }
       this.pose(false);
@@ -357,6 +392,7 @@ export class Battle {
       this.log(`護盾展開！之後 ${skill.guard} 回合受到的傷害減半。`);
       await sleep(700);
     }
+    if (big) await this.cinematic(false);
     if (skill.kind === 'heal') {
       const amt = Math.round(maxHp() * skill.power);
       state.hp = Math.min(maxHp(), state.hp + amt);
@@ -483,6 +519,19 @@ export class Battle {
     await sleep(1400);
   }
 
+  // 第三招的演出：鏡頭推向英雄、背景變暗
+  async cinematic(on) {
+    const dim = document.querySelector('#battle-dim') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'battle-dim' });
+    dim.classList.toggle('on', on);
+    const d0 = this.engine.distance, d1 = on ? 11 : 15;
+    const f0 = this.camFocus ? this.camFocus.clone() : new THREE.Vector3(0, 1.5, 0.6);
+    const f1 = on ? new THREE.Vector3(1.6, 1.4, 0.6) : new THREE.Vector3(0, 1.5, 0.6);
+    this.camFocus = f0;
+    await tween(on ? 380 : 320, t => { this.engine.distance = d0 + (d1 - d0) * t; this.camFocus.lerpVectors(f0, f1, t); });
+    if (!on) this.camFocus = null;
+    if (on) { sfx('levelup'); await sleep(250); }
+  }
+
   // 英雄四周的藍色護盾光效
   setShield(on) {
     if (on && !this.shield) {
@@ -512,11 +561,14 @@ export class Battle {
   }
 
   spawnFx(kind, pos) {
-    const fx = new Billboard(`fx_${kind}`, { fps: 10, shadow: false, castShadow: false, glow: 1.2 });
+    let key = `fx_${kind}`;
+    if (!sheetEntry(key) && ASSETS[key]?.fallback) key = ASSETS[key].fallback;
+    const fx = new Billboard(key, { fps: 12, shadow: false, castShadow: false, glow: 1.2 });
+    const life = (fx.def.cols * fx.def.rows) / 12 * 1000 + 40;
     fx.pivot.position.copy(pos).add(new THREE.Vector3(0, 0, 0.3));
     this.scene.add(fx.pivot);
     this.sprites.push(fx);
-    setTimeout(() => { this.scene.remove(fx.pivot); this.sprites = this.sprites.filter(s => s !== fx); fx.dispose(); }, 420);
+    setTimeout(() => { this.scene.remove(fx.pivot); this.sprites = this.sprites.filter(s => s !== fx); fx.dispose(); }, life);
   }
 
   async flash(sprite) {

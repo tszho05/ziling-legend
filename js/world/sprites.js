@@ -36,8 +36,15 @@ export async function preloadAssets(keys = Object.keys(ASSETS), onProgress = () 
       tex.anisotropy = 4;
     }
     tex.needsUpdate = true;
-    const aspect = (img.width / def.cols) / (img.height / def.rows);
-    cache.set(key, { tex, def, aspect, placeholder, alphaTest: placeholder ? 0.5 : 0.35 });
+    // 正式素材：按圖片尺寸推算格數（例如行走表由 4×4 換成 4×8 也不用改程式）
+    let d = def;
+    if (!placeholder) {
+      const cell = def.cell || 256;
+      const cols = Math.max(1, Math.round(img.width / cell)), rows = Math.max(1, Math.round(img.height / cell));
+      if (cols !== def.cols || rows !== def.rows) d = { ...def, cols, rows };
+    }
+    const aspect = (img.width / d.cols) / (img.height / d.rows);
+    cache.set(key, { tex, def: d, aspect, placeholder, alphaTest: placeholder ? 0.5 : 0.35 });
     onProgress(++done, keys.length);
   }));
 }

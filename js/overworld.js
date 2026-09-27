@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildMap, townLayout, fieldLayout } from './world/maps.js';
-import { Billboard, isPlaceholder } from './world/sprites.js';
+import { Billboard, isPlaceholder, sheetEntry } from './world/sprites.js';
 import { NPCS, QUESTS } from './data/npcs.js';
 import { FIELD_ENCOUNTERS, BOSS_ENCOUNTER } from './data/monsters.js';
 import { IDIOM_BY_ID } from './data/idioms.js';
@@ -48,6 +48,14 @@ export class Overworld {
     if (mapId === 'field') this.defeated.clear();
 
     this.player = new Billboard(`hero_${state.classId}_walk`, { fps: 8 });
+    this.player.fps = this.player.def.cols >= 8 ? 14 : 8; // 8 格走路要播快一點
+    // 四方向待機呼吸（有圖才用）
+    this.playerIdle = null;
+    if (sheetEntry(`hero_${state.classId}_idle`)) {
+      this.playerIdle = new Billboard(`hero_${state.classId}_idle`, { fps: 5 });
+      this.playerIdle.pivot.visible = false;
+      this.player.pivot.add(this.playerIdle.pivot);
+    }
     const sp = spawn || layout.spawn;
     this.player.pivot.position.set(sp.x, 0, sp.z);
     this.world.scene.add(this.player.pivot);
@@ -136,6 +144,11 @@ export class Overworld {
       // 行走時輕微上下彈動，補足影格較少時的動感
       this.walkT = moving ? (this.walkT || 0) + dt : 0;
       this.player.mesh.position.y = moving ? Math.abs(Math.sin(this.walkT * Math.PI * 4)) * 0.06 : 0;
+      if (this.playerIdle) {
+        this.player.mesh.visible = !!moving;
+        this.playerIdle.pivot.visible = !moving;
+        this.playerIdle.setRow(DIR_ROW[this.facing]);
+      }
 
       if (input.take('ok')) this.tryInteract();
       if (input.take('book')) ui.openBook().then(() => input.clearPressed());
@@ -147,6 +160,7 @@ export class Overworld {
       this.player.playing = false;
     }
     this.player.update(dt);
+    this.playerIdle?.update(dt);
     for (const n of this.npcs) {
       n.sprite.update(dt);
       n.mark.position.y = n.sprite.height + 0.45 + Math.sin(performance.now() / 300) * 0.08;

@@ -13,8 +13,8 @@ export const CLASSES = {
     grow: { hp: 9, atk: 2.5, def: 1.5, spd: 1 },
     skills: [
       { id: 'heavy', name: '重斬', kind: 'damage', power: 2.2, fx: 'slash', desc: '全力一擊，造成大量傷害。' },
-      { id: 'shield', name: '盾擊', kind: 'damage', power: 1.6, guard: 2, cd: 2, fx: 'slash', unlock: 'q_slime3', desc: '用盾撞擊敵人，之後 2 回合受傷減半。' },
-      { id: 'justice', name: '正義制裁', kind: 'damage', power: 1.8, heal: 0.25, cd: 3, fx: 'slash', unlock: 'q_goblin', desc: '正義的一擊，並回復 25% 生命。' },
+      { id: 'shield', name: '盾擊', kind: 'damage', power: 1.6, guard: 2, cd: 2, fx: 'shield', unlock: 'q_slime3', desc: '用盾撞擊敵人，之後 2 回合受傷減半。' },
+      { id: 'justice', name: '正義制裁', kind: 'damage', power: 1.8, heal: 0.25, cd: 3, fx: 'justice', unlock: 'q_goblin', desc: '正義的一擊，並回復 25% 生命。' },
     ],
   },
   mage: {
@@ -24,8 +24,8 @@ export const CLASSES = {
     grow: { hp: 9, atk: 2.5, def: 1.5, spd: 1 },
     skills: [
       { id: 'fireball', name: '火球術', kind: 'damage_all', power: 2.2, fx: 'fire', desc: '火焰攻擊全體敵人。' },
-      { id: 'iceshield', name: '冰晶護盾', kind: 'damage_all', power: 1.5, guard: 2, cd: 2, fx: 'fire', unlock: 'q_slime3', desc: '冰晶攻擊全體敵人，之後 2 回合受傷減半。' },
-      { id: 'spark', name: '生命火花', kind: 'damage_all', power: 1.6, heal: 0.45, cd: 3, fx: 'fire', unlock: 'q_goblin', desc: '攻擊全體敵人，並回復 45% 生命。' },
+      { id: 'iceshield', name: '冰晶護盾', kind: 'damage_all', power: 1.5, guard: 2, cd: 2, fx: 'ice', unlock: 'q_slime3', desc: '冰晶攻擊全體敵人，之後 2 回合受傷減半。' },
+      { id: 'spark', name: '生命火花', kind: 'damage_all', power: 1.6, heal: 0.45, cd: 3, fx: 'spark', unlock: 'q_goblin', desc: '攻擊全體敵人，並回復 45% 生命。' },
     ],
   },
   archer: {
@@ -35,8 +35,8 @@ export const CLASSES = {
     grow: { hp: 9, atk: 3, def: 1.5, spd: 2 },
     skills: [
       { id: 'pierce', name: '穿雲箭', kind: 'damage', power: 2.1, fx: 'arrow', desc: '強力的一箭。' },
-      { id: 'roll', name: '翻滾射擊', kind: 'damage', power: 1.6, guard: 2, cd: 2, fx: 'arrow', unlock: 'q_slime3', desc: '翻滾閃避並射擊，之後 2 回合受傷減半。' },
-      { id: 'forest', name: '森林之箭', kind: 'multi_hit', power: 0.8, hits: 3, heal: 0.3, cd: 3, fx: 'arrow', unlock: 'q_goblin', desc: '連射三箭，並回復 30% 生命。' },
+      { id: 'roll', name: '翻滾射擊', kind: 'damage', power: 1.6, guard: 2, cd: 2, fx: 'roll', unlock: 'q_slime3', desc: '翻滾閃避並射擊，之後 2 回合受傷減半。' },
+      { id: 'forest', name: '森林之箭', kind: 'multi_hit', power: 0.8, hits: 3, heal: 0.3, cd: 3, fx: 'forest', unlock: 'q_goblin', desc: '連射三箭，並回復 30% 生命。' },
     ],
   },
 };
