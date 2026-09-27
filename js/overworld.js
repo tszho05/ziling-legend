@@ -382,7 +382,7 @@ export class Overworld {
 
   async startBattle(m) {
     this.transitioning = true;
-    const result = await this.onBattle(m.enc.party);
+    const result = await this.onBattle(m.enc.party, m.enc.zone || 1);
     this.transitioning = false;
     input.clearPressed();
     if (result === 'win') {

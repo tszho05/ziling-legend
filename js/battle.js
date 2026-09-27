@@ -1,10 +1,7 @@
 import * as THREE from 'three';
 import { Billboard, sheetEntry } from './world/sprites.js';
 import { ASSETS } from './data/assets.js';
-import { makeTree, makeBush } from './world/props.js';
-import { makeRock, makeStump, makeMushrooms, makeFence } from './world/decor.js';
-import { addSky, addClouds, addHills, addTufts, hash } from './world/scenery.js';
-import { tex } from './world/textures.js';
+import { buildArena } from './world/arena.js';
 import { MONSTERS } from './data/monsters.js';
 import { state, cls, stats, maxHp, save, gainExp, recordKill, unlockedSkills } from './state.js';
 import { nextQuestion } from './quiz.js';
@@ -27,68 +24,6 @@ function tween(ms, fn) {
   });
 }
 
-// 戰鬥場景：郊外小路，背景有樹林、遠山、雲
-function buildArena() {
-  const scene = new THREE.Scene();
-  const fog = 0xdcebdc;
-  scene.background = new THREE.Color(fog);
-  scene.fog = new THREE.Fog(fog, 22, 60);
-  const center = new THREE.Vector3(0, 0, 0);
-  addSky(scene, { top: 0x6fb2ec, horizon: fog });
-  const updateClouds = addClouds(scene, center, 7);
-  addHills(scene, center, 24);
-  scene.add(new THREE.HemisphereLight(0xfff1dc, 0x6a5234, 1.25));
-  const sun = new THREE.DirectionalLight(0xffdcaa, 2.5);
-  sun.position.set(-6, 14, 8);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14 });
-  sun.shadow.bias = -0.0008;
-  scene.add(sun);
-  const gt = tex.grass().clone();
-  gt.repeat.set(80, 80);
-  gt.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-  const dt = tex.dirt().clone();
-  dt.repeat.set(16, 3);
-  dt.needsUpdate = true;
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(16, 3), new THREE.MeshStandardMaterial({ map: dt, roughness: 1 }));
-  path.rotation.x = -Math.PI / 2;
-  path.position.set(0, 0.01, 0.4);
-  path.receiveShadow = true;
-  scene.add(path);
-
-  const swayers = [];
-  const tree = o => { const t = makeTree(o); scene.add(t); swayers.push(t.userData.sway); };
-  for (let i = 0; i < 16; i++) tree({ x: -14 + i * 1.8 + (i % 3) * 0.4, z: -5.5 - (i % 4) * 0.9 });
-  for (let i = 0; i < 9; i++) tree({ x: -16 + i * 4, z: -11 - (i % 2) * 2 });
-  for (const [x, z] of [[-7, -3.2], [-1.5, -3.6], [5.5, -3.1], [9, -2.6]]) scene.add(makeBush({ x, z }));
-  for (const [x, z] of [[-9, -1.6], [8, -1.2]]) scene.add(makeRock({ x, z }));
-  scene.add(makeStump({ x: 2.2, z: -3 }));
-  scene.add(makeMushrooms({ x: -4.4, z: -2.6 }));
-  scene.add(makeFence({ x: -12, z: -2.5, len: 4 }));
-  // 草叢（避開中間的小路）
-  const spots = [];
-  for (let i = 0; i < 220; i++) {
-    const x = -16 + hash(i, 21) * 32, z = -8 + hash(i, 22) * 16;
-    if (Math.abs(z - 0.4) > 1.8) spots.push([x, z]);
-  }
-  addTufts(scene, spots, 'grass');
-  addTufts(scene, spots.filter((_, i) => i % 5 === 0).map(([x, z]) => [x + 0.4, z + 0.3]), 'flower');
-
-  scene.userData.animate = (dt, t) => {
-    updateClouds(dt);
-    for (const sw of swayers) {
-      sw.canopy.rotation.z = Math.sin(t * 1.2 + sw.phase) * 0.03;
-      sw.canopy.rotation.x = Math.cos(t * 0.9 + sw.phase) * 0.02;
-    }
-  };
-  return scene;
-}
-
 export class Battle {
   constructor(engine) {
     this.engine = engine;
@@ -109,9 +44,14 @@ export class Battle {
   }
 
   // 回傳 'win' | 'lose' | 'flee'
-  async run(party) {
-    this.scene = buildArena();
+  // zone：郊區分區（1 草原、2 森林、3 營地、4 祭壇），決定戰鬥場景
+  async run(party, zone = 1) {
+    this.scene = await buildArena(zone);
     this.engine.setScene(this.scene);
+    const gu = this.engine.grade.uniforms;
+    const gradeBefore = { vignette: gu.vignette.value, warmth: gu.warmth.value };
+    gu.vignette.value = this.scene.userData.grade.vignette;
+    gu.warmth.value = this.scene.userData.grade.warmth;
     this.engine.distance = 15;
     this.engine.lookAt(new THREE.Vector3(0, 1.5, 0.6), true);
     this.sprites = [];
@@ -130,14 +70,14 @@ export class Battle {
       attackSprite: new Billboard(`hero_${state.classId}_battle_attack`, { fps: 10, shadow: false, loop: false }),
     };
     this.hero.guardTurns = 0;
-    this.hero.home = new THREE.Vector3(3.6, 0, 0.6);
+    this.hero.home = new THREE.Vector3(3.2, 0, 0.6);
     this.hero.sprite.pivot.position.copy(this.hero.home);
     this.hero.attackSprite.pivot.visible = false;
     this.hero.sprite.pivot.add(this.hero.attackSprite.pivot);
     this.scene.add(this.hero.sprite.pivot);
     this.sprites.push(this.hero.sprite, this.hero.attackSprite);
 
-    const slots = this.isBoss ? [[-3.4, 0.2]] : [[-3, 0.6], [-2.2, -0.8], [-3.6, 1.8], [-4.2, -0.4]];
+    const slots = this.isBoss ? [[-2.8, 0.2]] : [[-2.6, 0.6], [-1.9, -0.8], [-3.2, 1.8], [-3.7, -0.4]];
     this.enemies = party.map((id, i) => {
       const def = MONSTERS[id];
       const sp = new Billboard(`monster_${id}`, { fps: 4 });
@@ -186,6 +126,8 @@ export class Battle {
     document.querySelector('#battle-dim')?.classList.remove('on');
     for (const s of this.sprites) s.dispose();
     this.engine.distance = 19;
+    gu.vignette.value = gradeBefore.vignette;
+    gu.warmth.value = gradeBefore.warmth;
     save();
     return result;
   }

@@ -17,10 +17,10 @@ const engine = new Engine($('#game'));
 let mode = null; // 'overworld' | 'battle'
 const battle = new Battle(engine);
 const world = new Overworld(engine, {
-  async onBattle(party) {
+  async onBattle(party, zone) {
     let result;
     await ui.fade(async () => { mode = 'battle'; });
-    result = await battle.run(party);
+    result = await battle.run(party, zone);
     await ui.fade(async () => { engine.setScene(world.world.scene); engine.lookAt(world.cameraTarget(), true); mode = 'overworld'; });
     return result;
   },
