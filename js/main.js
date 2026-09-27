@@ -67,7 +67,7 @@ function showClassSelect() {
     card.style.setProperty('--c', c.color);
     card.innerHTML = `<div class="cc-name">${c.name}</div><div class="cc-desc">${c.desc}</div>
       <div class="cc-stats">HP ${c.base.hp}　攻擊 ${c.base.atk}　防禦 ${c.base.def}　速度 ${c.base.spd}</div>
-      <div class="cc-skills">${c.skills.map(s => `<span>${s.name}</span>`).join('')}</div>`;
+      <div class="cc-skills">${c.skills.map(s => `<span title="${s.desc}">${s.name}${s.unlock === 'q_slime3' ? '（清除史萊姆後）' : s.unlock === 'q_goblin' ? '（哥布林的威脅後）' : '（起始）'}</span>`).join('')}</div>`;
     card.onclick = () => { box.hidden = true; newGame(c.id); startGame(true); };
     list.appendChild(card);
   }

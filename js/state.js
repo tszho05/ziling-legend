@@ -21,6 +21,8 @@ export function newGame(classId) {
 export const cls = () => CLASSES[state.classId];
 export const stats = () => statsAt(cls(), state.level);
 export const maxHp = () => stats().hp;
+// 已解鎖的技能（起始技能＋完成指定任務後解鎖的技能）
+export const unlockedSkills = () => cls().skills.filter(s => !s.unlock || state.quests[s.unlock]?.status === 'done');
 
 export function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch { return false; } }

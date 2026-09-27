@@ -144,6 +144,76 @@ export const ui = {
     });
   },
 
+  // 字方塊題：8 個字（成語的 4 個字＋從其他成語抽的 4 個字），依次點選拼出成語
+  tileQuiz(q, { title = '成語挑戰' } = {}) {
+    const box = $('#quiz');
+    setDepth(1);
+    const word = [...q.idiom.word];
+    const pool = [...new Set(IDIOMS.filter(i => i.id !== q.idiom.id).flatMap(i => [...i.word]))].filter(ch => !word.includes(ch));
+    for (let i = pool.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const tiles = [...word, ...pool.slice(0, 4)].map((ch, i) => ({ ch, i }));
+    for (let i = tiles.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; }
+    const prompt = q.type === 'meaning'
+      ? `用字方塊拼出意思是這樣的成語：\n「${q.idiom.meaning}」`
+      : `用字方塊拼出最適合填在橫線上的成語：\n${q.idiom.example}`;
+    return new Promise(resolve => {
+      box.innerHTML = `<div class="quiz-title">${esc(title)}</div><div class="quiz-prompt">${esc(prompt)}</div>
+        <div class="tile-slots">${word.map((_, i) => `<button class="tile-slot" data-i="${i}"></button>`).join('')}</div>
+        <div class="tile-pool">${tiles.map((t, k) => `<button class="tile" data-k="${k}">${esc(t.ch)}</button>`).join('')}</div>
+        <div class="tile-btns"><button class="btn" data-act="clear">清除</button><button class="btn primary" data-act="ok" disabled>確定</button></div>
+        <div class="quiz-feedback" hidden></div>`;
+      const slots = [...box.querySelectorAll('.tile-slot')];
+      const tileEls = [...box.querySelectorAll('.tile')];
+      const okBtn = box.querySelector('[data-act="ok"]');
+      const filled = Array(word.length).fill(null); // 每格放了哪個方塊（k）
+      let answered = false;
+      const render = () => {
+        slots.forEach((s, i) => { s.textContent = filled[i] == null ? '' : tiles[filled[i]].ch; s.classList.toggle('on', filled[i] != null); });
+        tileEls.forEach((t, k) => t.classList.toggle('used', filled.includes(k)));
+        okBtn.disabled = filled.includes(null);
+      };
+      const place = k => {
+        if (answered || filled.includes(k)) return;
+        const i = filled.indexOf(null);
+        if (i < 0) return;
+        filled[i] = k; sfx('click'); render();
+      };
+      const unplace = i => { if (answered || filled[i] == null) return; filled[i] = null; render(); };
+      tileEls.forEach((t, k) => t.onclick = () => place(k));
+      slots.forEach((s, i) => s.onclick = () => unplace(i));
+      box.querySelector('[data-act="clear"]').onclick = () => { if (!answered) { filled.fill(null); render(); } };
+      const submit = () => {
+        if (answered || filled.includes(null)) return;
+        answered = true;
+        const ok = filled.map(k => tiles[k].ch).join('') === q.idiom.word;
+        sfx(ok ? 'correct' : 'wrong');
+        slots.forEach((s, i) => s.classList.add(tiles[filled[i]].ch === word[i] ? 'right' : 'wrong'));
+        box.querySelector('.tile-btns').hidden = true;
+        const fb = box.querySelector('.quiz-feedback');
+        fb.hidden = false;
+        fb.className = 'quiz-feedback ' + (ok ? 'ok' : 'ng');
+        fb.innerHTML = `<div class="fb-head">${ok ? '答對了！' : '答錯了……'}</div>
+          <div>正確答案：<b>${esc(q.idiom.word)}</b> —— ${esc(q.idiom.meaning)}</div>
+          <button class="btn primary">繼續</button>`;
+        const cont = () => { box.hidden = true; keyHandler = null; setDepth(-1); resolve(ok); };
+        fb.querySelector('button').onclick = cont;
+        keyHandler = e => { if (['Space', 'Enter', 'KeyZ'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); cont(); } };
+      };
+      okBtn.onclick = submit;
+      // 鍵盤：1–8 選方塊，Backspace 退回最後一格，Enter 確定
+      keyHandler = e => {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= tiles.length) place(n - 1);
+        else if (e.code === 'Backspace') { const i = filled.map(v => v != null).lastIndexOf(true); if (i >= 0) unplace(i); }
+        else if (e.code === 'Enter') submit();
+        else return;
+        e.preventDefault(); e.stopPropagation();
+      };
+      render();
+      box.hidden = false;
+    });
+  },
+
   toast(msg, ms = 2200) {
     const t = el('div', 'toast', esc(msg));
     $('#toasts').appendChild(t);

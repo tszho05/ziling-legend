@@ -5,7 +5,7 @@ import { makeRock, makeStump, makeMushrooms, makeFence } from './world/decor.js'
 import { addSky, addClouds, addHills, addTufts, hash } from './world/scenery.js';
 import { tex } from './world/textures.js';
 import { MONSTERS } from './data/monsters.js';
-import { state, cls, stats, maxHp, save, gainExp, recordKill } from './state.js';
+import { state, cls, stats, maxHp, save, gainExp, recordKill, unlockedSkills } from './state.js';
 import { nextQuestion } from './quiz.js';
 import { sfx, music } from './audio.js';
 import { ui } from './ui.js';
@@ -112,6 +112,7 @@ export class Battle {
     this.isBoss = party.some(id => MONSTERS[id].boss);
     this.sealed = null;
     this.vortex = null;
+    this.cd = {};
     music.play(this.isBoss ? 'boss' : 'battle');
 
     const c = cls();
@@ -121,6 +122,7 @@ export class Battle {
       sprite: new Billboard(`hero_${state.classId}_battle_idle`, { fps: 4 }),
       attackSprite: new Billboard(`hero_${state.classId}_battle_attack`, { fps: 10, shadow: false, loop: false }),
     };
+    this.hero.guardTurns = 0;
     this.hero.home = new THREE.Vector3(3.6, 0, 0.6);
     this.hero.sprite.pivot.position.copy(this.hero.home);
     this.hero.attackSprite.pivot.visible = false;
@@ -151,6 +153,8 @@ export class Battle {
     let result = null;
     while (!result) {
       const act = await this.heroTurn();
+      // 冷卻在英雄行動後倒數：冷卻 2 = 下一回合不能用，第 2 回合可以再用
+      for (const id in this.cd) if (this.cd[id] > 0) this.cd[id]--;
       // 封印在英雄行動後才倒數，所以會完整封住 2 個回合
       if (this.sealed && this.enemies.some(e => e.alive) && --this.sealed.turns <= 0) { this.log(`「${cls().skills.find(s => s.id === this.sealed.id).name}」的封印解除了！`); this.sealed = null; await sleep(700); }
       if (act === 'flee') { result = 'flee'; break; }
@@ -161,6 +165,7 @@ export class Battle {
         if (state.hp <= 0) { result = 'lose'; break; }
       }
       this.hero.guard = false;
+      if (this.hero.guardTurns > 0 && --this.hero.guardTurns === 0) { this.setShield(false); this.log('護盾消失了。'); await sleep(500); }
     }
     if (result === 'win') await this.victory();
     if (result === 'lose') { music.stop(); sfx('lose'); this.log('你倒下了……'); await sleep(1400); }
@@ -168,6 +173,7 @@ export class Battle {
     $('#hud').hidden = false;
     document.body.classList.remove('in-battle');
     $('#battle-cmd').innerHTML = '';
+    this.setShield(false);
     for (const s of this.sprites) s.dispose();
     this.engine.distance = 19;
     save();
@@ -191,9 +197,11 @@ export class Battle {
     return new Promise(resolve => {
       const box = $('#battle-cmd');
       const items = [
-        ...cls().skills.map(s => this.sealed?.id === s.id
+        ...unlockedSkills().map(s => this.sealed?.id === s.id
           ? { id: 'sealed', label: `🔒 ${s.name}`, hint: `被亂字魔封印（還有 ${this.sealed.turns} 回合）`, disabled: true }
-          : { id: 'skill:' + s.id, label: s.name, hint: `答題後施放・${s.desc}` }),
+          : this.cd[s.id] > 0
+            ? { id: 'cooldown', label: `⏳ ${s.name}`, hint: `冷卻中（還有 ${this.cd[s.id]} 回合）`, disabled: true }
+            : { id: 'skill:' + s.id, label: s.name, hint: `${s.cd ? '字方塊題' : '答題'}後施放・${s.desc}` }),
         { id: 'defend', label: '防禦', hint: '本回合受到的傷害減半' },
         ...(this.isBoss ? [] : [{ id: 'flee', label: '逃走', hint: '離開戰鬥' }]),
       ];
@@ -252,7 +260,10 @@ export class Battle {
         const skill = cls().skills.find(s => 'skill:' + s.id === cmd);
         let target = null;
         if (skill.kind === 'damage') { target = await this.pickTarget(); if (!target) continue; }
-        const ok = await ui.quiz(nextQuestion(state.learned), { title: `施放「${skill.name}」── 答對才能借用字靈之力` });
+        const title = `施放「${skill.name}」── 答對才能借用字靈之力`;
+        const q = nextQuestion(state.learned);
+        const ok = skill.cd ? await ui.tileQuiz(q, { title }) : await ui.quiz(q, { title });
+        if (skill.cd) this.cd[skill.id] = skill.cd;
         ok ? state.quiz.correct++ : state.quiz.wrong++;
         if (!ok) {
           sfx('fail');
@@ -315,7 +326,7 @@ export class Battle {
     this.log(`「${skill.name}」！`);
     const alive = () => this.enemies.filter(e => e.alive);
     if (skill.kind === 'damage') {
-      await this.heroStrike(target, skill.power, skill.fx, { crit: skill.id === 'pierce' });
+      await this.heroStrike(target, skill.power, skill.fx);
     } else if (skill.kind === 'damage_all') {
       this.pose(true);
       await tween(250, t => { this.hero.sprite.pivot.position.y = Math.sin(t * Math.PI) * 0.4; });
@@ -330,7 +341,23 @@ export class Battle {
         await this.hit(t, this.damageTo(t, skill.power), skill.fx);
       }
       this.pose(false);
-    } else if (skill.kind === 'heal') {
+    }
+    if (skill.heal) {
+      const amt = Math.round(maxHp() * skill.heal);
+      state.hp = Math.min(maxHp(), state.hp + amt);
+      sfx('heal');
+      this.spawnFx('heal', this.hero.sprite.pivot.position);
+      this.popNumber(this.hero.sprite.pivot.position, this.hero.sprite.height, `+${amt}`, 'heal');
+      this.renderStatus();
+      await sleep(600);
+    }
+    if (skill.guard) {
+      this.hero.guardTurns = skill.guard;
+      this.setShield(true);
+      this.log(`護盾展開！之後 ${skill.guard} 回合受到的傷害減半。`);
+      await sleep(700);
+    }
+    if (skill.kind === 'heal') {
       const amt = Math.round(maxHp() * skill.power);
       state.hp = Math.min(maxHp(), state.hp + amt);
       if (skill.id === 'guard') this.hero.guard = true;
@@ -355,7 +382,7 @@ export class Battle {
     if (e.phase2) {
       // 暴走形態：沒有封印時先封印一招，否則墨水連擊（攻擊兩次）
       if (!this.sealed && e.turns % every === 1) {
-        const skills = cls().skills;
+        const skills = unlockedSkills();
         const s = skills[(Math.random() * skills.length) | 0];
         this.sealed = { id: s.id, turns: 2 };
         this.log(`${e.name}用亂碼封印了「${s.name}」！（2 回合）`);
@@ -382,7 +409,7 @@ export class Battle {
     const s = stats();
     const atk = e.phase2 ? e.def.phase2.atk : e.def.atk;
     let d = Math.max(1, Math.round(atk * mult * rand(0.85, 1.15) - s.def * 0.5));
-    if (this.hero.guard) d = Math.max(1, Math.round(d / 2));
+    if (this.hero.guard || this.hero.guardTurns > 0) d = Math.max(1, Math.round(d / 2));
     state.hp -= d;
     sfx('hurt');
     this.popNumber(this.hero.sprite.pivot.position, this.hero.sprite.height, d, 'hurt');
@@ -454,6 +481,23 @@ export class Battle {
     sfx('levelup');
     this.log(`${e.name}出現了！牠會連續攻擊，還會封印你的技能！`);
     await sleep(1400);
+  }
+
+  // 英雄四周的藍色護盾光效
+  setShield(on) {
+    if (on && !this.shield) {
+      const m = new THREE.MeshBasicMaterial({ color: 0x6ab8ff, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
+      this.shield = new THREE.Mesh(new THREE.SphereGeometry(1.1, 24, 16), m);
+      this.shield.scale.set(0.9, 1.25, 0.6);
+      this.shield.position.y = 1.2;
+      this.hero.sprite.pivot.add(this.shield);
+      const base = performance.now();
+      const pulse = () => { if (!this.shield) return; m.opacity = 0.22 + Math.sin((performance.now() - base) / 250) * 0.08; requestAnimationFrame(pulse); };
+      pulse();
+    } else if (!on && this.shield) {
+      this.shield.parent?.remove(this.shield);
+      this.shield = null;
+    }
   }
 
   async victory() {

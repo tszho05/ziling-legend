@@ -218,3 +218,17 @@ body.cutscene::before, body.cutscene::after { height: 9vh; }
 
 .cmd-btn.disabled { opacity: .5; cursor: not-allowed; border-color: #6a3a8a; }
 .cmd-btn.disabled small { color: #d8a8ff; }
+
+/* 字方塊題 */
+.tile-slots { display: flex; justify-content: center; gap: 10px; margin: 6px 0 16px; }
+.tile-slot { font: inherit; width: 64px; height: 64px; font-size: 34px; color: var(--accent); background: #1a1622; border: 2px dashed var(--border-dim); border-radius: 10px; cursor: pointer; }
+.tile-slot.on { border-style: solid; border-color: var(--border); background: #2b2216; }
+.tile-slot.right { border-color: var(--ok); background: rgba(82, 210, 115, .18); }
+.tile-slot.wrong { border-color: var(--ng); background: rgba(255, 107, 91, .18); }
+.tile-pool { display: grid; grid-template-columns: repeat(4, 64px); gap: 10px; justify-content: center; }
+.tile { font: inherit; width: 64px; height: 64px; font-size: 30px; color: var(--text); background: #221d2c; border: 2px solid var(--border-dim); border-radius: 10px; cursor: pointer; transition: transform .1s; }
+.tile:hover { border-color: var(--border); transform: translateY(-2px); }
+.tile.used { opacity: .25; pointer-events: none; }
+.tile-btns { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
+.tile-btns .btn[disabled] { opacity: .4; cursor: not-allowed; }
+@media (max-width: 420px) { .tile, .tile-slot { width: 54px; height: 54px; font-size: 26px; } .tile-pool { grid-template-columns: repeat(4, 54px); } }
