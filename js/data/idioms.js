@@ -39,7 +39,7 @@ export const IDIOMS = [
   {
     id: 'xinhuiyileng', word: '心灰意冷',
     meaning: '形容非常失望，失去了信心。',
-    example: '練習了很久還是輸了比賽，他感到＿＿＿＿。',
+    example: '小明練習了很久還是輸了比賽，他感到＿＿＿＿。',
   },
   {
     id: 'youkounanyan', word: '有口難言',
