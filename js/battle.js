@@ -151,6 +151,7 @@ export class Battle {
     });
 
     $('#battle-ui').hidden = false;
+    $('#battle-ui').classList.toggle('boss', this.isBoss);
     $('#hud').hidden = true;
     document.body.classList.add('in-battle');
     this.renderStatus();
@@ -197,6 +198,14 @@ export class Battle {
     $('#battle-hero').innerHTML = `<div class="bh-name">${cls().name} Lv.${state.level}</div>
       <div class="bar"><div class="fill hp" style="width:${(state.hp / s.hp) * 100}%"></div></div>
       <div class="bh-hp">HP ${Math.max(0, state.hp)} / ${s.hp}</div>`;
+    // 頭目戰：畫面頂部的大血條
+    if (this.isBoss) {
+      const e = this.enemies[0];
+      $('#battle-enemies').innerHTML = `<div class="boss-name">${e.name}</div>
+        <div class="boss-hp">${Math.max(0, e.hp)} / ${e.maxHp}</div>
+        <div class="bar boss"><div class="fill ehp" style="width:${(Math.max(0, e.hp) / e.maxHp) * 100}%"></div></div>`;
+      return;
+    }
     $('#battle-enemies').innerHTML = this.enemies.map(e => `<div class="be ${e.alive ? '' : 'dead'}">
       <span>${e.name}</span><div class="bar small"><div class="fill ehp" style="width:${(Math.max(0, e.hp) / e.maxHp) * 100}%"></div></div></div>`).join('');
   }
